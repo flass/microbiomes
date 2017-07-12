@@ -1,4 +1,4 @@
-#!/usr/bin/R	
+#!/usr/bin/Rscript --vanilla
 library('ade4')
 library('MASS')
 library('adegenet')
@@ -15,7 +15,7 @@ colorWheel = function(angle){
 }
 
 # load GPS-related function
-source(file.path('/path/to/gpscoords.r'))
+source('/path/to/gpscoords.r')
 
 
 prefix = 'alledges.33samples'
@@ -112,6 +112,10 @@ rownames(edgediff) = as.character(individuals)
 populations = as.factor(sapply(individuals, function(x){ if (x %in% sampleref$Sample){ return(sampleref$Population[sampleref$Sample==x]) }else{ return("American") }}))
 lifestyles = as.factor(sapply(individuals, function(x){ if (x %in% sampleref$Sample){ return(lifeshort[sampleref$Lifestyle][sampleref$Sample==x]) }else{ return("C") }}))
 localities = as.factor(sapply(individuals, function(x){ if (x %in% sampleref$Sample){ return(sampleref$Locality[sampleref$Sample==x]) }else{ return("USA") }}))
+batches = as.factor(sapply(individuals, function(x){ 
+	if (x %in% sampleref$Sample){ return(paste('run', sampleref$Run[sampleref$Sample==x], sep='')) 
+	}else{ return(substr(x, 1, 3)) }
+}))
 
 criteria = list(populations, lifestyles, localities)
 names(criteria) = pll
@@ -136,11 +140,8 @@ ntopedges = 20
 # dudi.pca + lda <=> dapc
 # PCA
 pcaedge.scale_center = dudi.pca(edgediff, scale=T, center=T,  nf=npca, scannf=F)
-pcaedge.noscale_center = dudi.pca(edgediff, scale=F, center=T,  nf=npca, scannf=F)
-#~ pcaedge.scale_center.fi = dudi.pca(edgediff[filipinos,], scale=T, center=T,  nf=npca, scannf=F)
-#~ pcaedge.noscale_center.fi = dudi.pca(edgediff[filipinos,], scale=F, center=T,  nf=npca, scannf=F)
+pcaedge.noscale_center = dudi.pca(edgediff, scale=F, center=T,  nf=npca, scannf=F) # the one corresponding to guppy's native edgePCA
 pcas = list(pcaedge.scale_center, pcaedge.noscale_center) ; names(pcas) = c('scaled_abundances', 'abundance-weighted')
-#~ pcas = list(pcaedge.scale_center, pcaedge.noscale_center, pcaedge.scale_center.fi, pcaedge.noscale_center.fi) ; names(pcas) = c('scaled_abundances', 'abundance-weighted', 'scaled_abundances.filipinos', 'abundance-weighted.filipinos')
 
 for (pcasca in names(pcas)){
 	if (pcasca=='scaled_abundances'){ scalingedgevect = 750
@@ -149,7 +150,6 @@ for (pcasca in names(pcas)){
 	pcali = pcas[[pcasca]]$li
 	pcaco = pcas[[pcasca]]$c1
 	pcaeig = pcas[[pcasca]]$eig
-	signeigen = checkEigenVectorDirection(edgediff, pcali, pcaco)
 	print(paste(npca, 'PCs, % variance explained:', paste((pcaeig/sum(pcaeig))[1:npca], collapse=' ', sep=' '), sep=' '))
 	pdf(paste(epcaresdir, paste(prefix, 'ePCA', pcasca, 'pdf', sep='.'), sep='/'), width=20, height=20)
 	for (k in 1:length(criteria)){
@@ -345,3 +345,15 @@ for (pcasca in names(pcas)){
 	dev.off()
 
 }
+
+# PCA made by guppy uses a diffrent projection! Also eigen vectors direction are not expected to have a particular meaning here
+pdf(paste(epcaresdir, paste(prefix, 'GUPPY-projected.ePCA.pdf', sep='.'), sep='/'), width=15, height=15)
+for (k in 1:length(criteria)){
+	for (npc in 1:2){
+		xax=((npc-1)*2)+1 ; yax=npc*2
+		print(c(xax, yax))
+		s.class(guppy.epca.proj, xax=xax, yax=yax, fac=criteria[[k]],
+		 col=lcoul[[k]][levels(criteria[[k]])], pch=lpch[[k]][as.character(populations)])
+	}
+}
+dev.off()
