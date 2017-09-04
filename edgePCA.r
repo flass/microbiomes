@@ -7,6 +7,21 @@ library('ggplot2')
 #~ library('vegan')	prefer to use `ecodist::mantel` rather than `vegan::mantel`
 library('ecodist')
 
+# folder where all data are stored
+cargs = commandArgs(trailingOnly=T)
+if (len(cargs)>0){
+	metaghomedir = cargs[1]
+}else{
+	metaghomedir = file.path(getwd(), 'oral_metagenomes')
+}
+stopifnot((file.exists(metaghomedir) && file.info(metaghomedir)$isdir))
+
+# load shared params and functions
+source('/path/to/shared_params.r', local=TRUE)
+
+# load GPS-related function
+source('/path/to/gpscoords.r')
+
 colorWheel = function(angle){
  R = (abs((angle + 180)%%360 - 180) / 180)
  G = (abs((angle + 300)%%360 - 180) / 180)
@@ -14,35 +29,14 @@ colorWheel = function(angle){
  return(rgb(R,G,B))
 }
 
-# load GPS-related function
-source('/path/to/gpscoords.r')
-
-
+#####
+# define local folder structure
 prefix = 'alledges.33samples'
 prefixrestricted = '33samples'
 
 subprefix = 'alledges.24samples'
 subprefixrestricted = '24samples'
 
-pll = c('populations', 'lifestyles', 'localities')
-coulpop = c('black', 'slateblue', 'blue', 'violetred1', 'chartreuse3', 'goldenrod', 'red2')
-names(coulpop) = c('Aeta', 'Agta', 'Batak', 'Tagbanua', 'Zambal', 'Casigurani', 'American')
-coullif = c('red2', 'limegreen', 'royalblue')
-names(coullif) = c('C', 'F', 'HG')
-coulloc = c('orange', 'darkgreen', 'red2', 'purple')
-names(coulloc) = c('Palawan_Mount', 'Luzon_Mount', 'USA', 'Luzon_Coast')
-lcoul = list(coulpop, coullif, coulloc)
-names(lcoul) = pll
-pchlif = c(16, 17, 16, 17, 16, 17, 15)
-names(pchlif) = names(coulpop)
-pchpop = c(17, 17, 17, 16, 16, 16, 15)
-names(pchpop) = names(coulpop)
-pchloc = c(17, 17, 17, 16, 16, 16, 15)
-names(pchloc) = names(coulpop)
-lpch = list(pchpop, pchlif, pchloc)
-names(lpch) = pll
-
-metaghomedir = paste(homedir, 'oral_metagenomes', sep='/')
 phylosiftmarkerdbdir = paste(metaghomedir, 'phylosift_v1.0.1/markers', sep='/')
 phylosiftmarker = 'concat.updated.annotated'
 phylosiftmarkertag = 'concat.updated'
@@ -98,9 +92,6 @@ for (i in invertededges[,1]+1){
 
 guppy.epca.proj = read.csv(paste(epcaresdir, paste(prefixrestricted, 'proj', sep='.'), sep='/'), row.names=1, header=F, sep=',')
 
-sampleref = read.table(paste(metaghomedir, 'Philippines_Sample_List.tab', sep='/'), sep='\t', header=T, stringsAsFactors=F)
-lifeshort = c('C', 'F', 'HG') ; names(lifeshort) = c('Western', 'Agriculturalist', 'Hunter-gatherer')
-
 individuals = as.factor(sapply(rownames(edgediff), function(x){
 	stsp = strsplit(strsplit(as.character(x), split='\\.')[[1]][2], split='_')[[1]]
 	if (substr(stsp[1], 1, 3)=='run'){ return(stsp[2])
@@ -109,18 +100,9 @@ individuals = as.factor(sapply(rownames(edgediff), function(x){
 
 rownames(edgediff) = as.character(individuals)
 
-populations = as.factor(sapply(individuals, function(x){ if (x %in% sampleref$Sample){ return(sampleref$Population[sampleref$Sample==x]) }else{ return("American") }}))
-lifestyles = as.factor(sapply(individuals, function(x){ if (x %in% sampleref$Sample){ return(lifeshort[sampleref$Lifestyle][sampleref$Sample==x]) }else{ return("C") }}))
-localities = as.factor(sapply(individuals, function(x){ if (x %in% sampleref$Sample){ return(sampleref$Locality[sampleref$Sample==x]) }else{ return("USA") }}))
-batches = as.factor(sapply(individuals, function(x){ 
-	if (x %in% sampleref$Sample){ return(paste('run', sampleref$Run[sampleref$Sample==x], sep='')) 
-	}else{ return(substr(x, 1, 3)) }
-}))
-
-criteria = list(populations, lifestyles, localities)
-names(criteria) = pll
-
-filipinos = which(localities %in% c('Luzon_Coast', 'Luzon_Mount', 'Palawan_Mount'))
+# all samples' metadata (from loaded script 'shared_params.r')
+criteria = getIndividualFactors(individual.labels=individuals)
+attach(criteria)
 
 # geolocalization
 
