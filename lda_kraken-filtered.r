@@ -43,7 +43,7 @@ if (len(cargs)>0){
 stopifnot((file.exists(metaghomedir) && file.info(metaghomedir)$isdir))
 
 # load shared params and functions
-source('./shared_params.r', local=TRUE)
+source('shared_params.r', local=TRUE)
 
 nbcores = 4
 

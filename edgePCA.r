@@ -1,4 +1,8 @@
 #!/usr/bin/Rscript --vanilla
+
+## !!! This script requires a local PosgreSQL build of the NCBI Taxonomy database !!!
+## Flat files available within the Phylosift package (better use the same version as used when running Phylosift), or at ftp.ncbi.nlm.nih.gov/pub/taxonomy
+
 library('ade4')
 library('MASS')
 library('adegenet')
@@ -17,10 +21,10 @@ if (len(cargs)>0){
 stopifnot((file.exists(metaghomedir) && file.info(metaghomedir)$isdir))
 
 # load shared params and functions
-source('/path/to/shared_params.r', local=TRUE)
+source('shared_params.r', local=TRUE)
 
 # load GPS-related function
-source('/path/to/gpscoords.r')
+source('gpscoords.r')
 
 colorWheel = function(angle){
  R = (abs((angle + 180)%%360 - 180) / 180)
@@ -45,7 +49,8 @@ humanpopgendir = paste(metaghomedir, 'pop_structure', sep='/')
 epcaresdir = paste(guppyresdir, '33samples.epca_results_std_settings', sep='/')
 
 
-## load the taxon names associated with the edges of the reference tree from Taxonomy database
+## load the taxon names associated with the edges of the reference tree from NCBI Taxonomy database
+## !!! requires a local PosgreSQL build of the NCBI Taxonomy database !!!
 nfedgenames = paste(phylosiftmarkerdbdir, phylosiftmarker, paste(phylosiftmarkertag, 'taxonmap.names', sep='.'), sep='/')
 if (!file.exists(nfedgenames)){
 	library('DBI')
