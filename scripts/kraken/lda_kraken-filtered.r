@@ -5,7 +5,7 @@ library('parallel')
 library('gplots')
 library('RColorBrewer')
 library('MASS')
-
+library('ancom.R')
 
 plotPCAabun = function(tabun.pca, criterion, couls, subsample=NULL, np=4, topdisc=NULL, scalingvarvect=1, cex=1){
 	pcali = tabun.pca$li
@@ -33,41 +33,35 @@ plotPCAabun = function(tabun.pca, criterion, couls, subsample=NULL, np=4, topdis
 	}
 }
 
+
+# folder where all data are stored
+cargs = commandArgs(trailingOnly=T)
+if (length(cargs)>0){
+	topoutdir = cargs[1]
+}else{
+	topoutdir = file.path('~/oral_metagenomes/STEP_03_Kraken_results')
+}
+stopifnot((file.exists(topoutdir) && file.info(topoutdir)$isdir))
+
+# folders of input data
+if (length(cargs)>1){
+	krakenresdirs = cargs[2:length(cargs)]
+}else{
+	krakenresdirs = paste('~/oral_metagenomes/STEP_03_Kraken_results/kraken_classification/microbial_db', c('reads_human_removed_duskmask_4', 'HMP_reads_duskmsk_4'), sep='/')
+}
+for (krakenresdir in krakenresdirs){
+	stopifnot((file.exists(krakenresdir) && file.info(krakenresdir)$isdir && length(list.files(krakenresdir))>0)
+}
+
+# load shared params and functions
+source('shared_params.r', local=TRUE)
+
 nbcores = 4
-user = Sys.info()['user']
-homedir = paste('/home', user, sep='/')
-metaghome = paste(homedir, 'oral_metagenomes', sep='/')
-
-#~ lifeshort = c('C', 'F', 'HG') ; names(lifeshort) = c('Western', 'Agriculturalist', 'Hunter-gatherer')
-#~ lifeshort = c('WC', 'AG', 'HG') ; names(lifeshort) = c('Western', 'Agriculturalist', 'Hunter-gatherer')
-lifeshort = c('HG', 'AG', 'WC') ; names(lifeshort) = c('Hunter-gatherer', 'Agriculturalist', 'Western Controls')
-
-pll = c('populations', 'lifestyles', 'localities')
-coulpop = c('black', 'slateblue', 'blue', 'violetred1', 'chartreuse3', 'goldenrod', 'red2')
-names(coulpop) = c('Aeta', 'Agta', 'Batak', 'Tagbanua', 'Zambal', 'Casigurani', 'American')
-#~ coullif = c('red2', 'limegreen', 'royalblue')
-coullif = c('royalblue', 'limegreen', 'red2')
-names(coullif) = lifeshort
-#~ coullif = c('royalblue', 'red2', 'limegreen', 'slategrey')
-#~ names(coullif) = c('A', 'C', 'F', 'HG')
-coulloc = c('orange', 'darkgreen', 'red2', 'purple')
-names(coulloc) = c('Palawan_Mount', 'Luzon_Mount', 'USA', 'Luzon_Coast')
-lcoul = list(coulpop, coullif, coulloc)
-names(lcoul) = pll
-pchlif = c(16, 17, 16, 17, 16, 17, 15)
-names(pchlif) = names(coulpop)
-pchpop = c(17, 17, 17, 16, 16, 16, 15)
-names(pchpop) = names(coulpop)
-pchloc = c(17, 17, 17, 16, 16, 16, 15)
-names(pchloc) = names(coulpop)
-lpch = list(pchpop, pchlif, pchloc)
-names(lpch) = pll
 
 orederedpops.PC3 = c('Aeta', 'Batak', 'Agta', 'Tagbanua', 'Zambal', 'Casigurani', 'American')
-#~ orederedlifs.PC4 = c('HG', 'F', 'C')
-orederedlifs.PC4 = c('HG', 'AG', 'WC')
-orederedlocs.PC3 = c('Palawan_Mount', 'Luzon_Mount', 'Luzon_Coast', 'USA')
-ordered.crits = list(orederedpops.PC3, orederedlifs.PC4, orederedlocs.PC3) ; names(ordered.crits) = pll
+orederedlifs.PC4 = lifeshort
+orederedlocs.PC3 = loccat
+ordered.crits = list(orederedpops.PC3, orederedlifs.PC4, orederedlocs.PC3) ; names(ordered.crits) = pll[1:3]
 
 #~ scalingvarvect = 'auto'
 scalingvarvect = 60
@@ -77,17 +71,12 @@ scalingvarvect = 60
 taxlevels = c('G', 'S')
 taxonomiclevels = c('Genus', 'Species') ; names(taxonomiclevels) = taxlevels
 refranks = c('genera', 'species') ; names(refranks) = taxlevels
-krakenhome = paste(metaghome, 'STEP_03_Kraken_results', sep='/')
-coabundir = paste(metaghome, 'STEP_08_co-abundance', sep='/')
-#~ krakenhome = '/cluster/scratch3/ucbtmsp/oral_microbiome_project/STEP_03_Kraken_results'
-krakenrestopdir = paste(krakenhome, 'kraken_classification/microbial_db', sep='/')
-krakenresdirs = paste(krakenrestopdir, c('reads_human_removed_duskmask_4', 'HMP_reads_duskmsk_4'), sep='/')
-
-interestingtaxa = c('Veillonella', 'Prevotella', 'Neisseria', 'Streptococcus', 'Haemophilus', 'Actinomyces', 'Treponema', 'Megasphaera')
-pathogenspecies = readLines(sprintf('%s/pathogens_Warinner2014+Chen2014.txt', coabundir))
 
 filtertags = c('filtered.020', 'unfiltered')
-outdirs = paste(krakenhome, c('LDA_confidence-filtered', 'LDA_sensitive'), sep='/') ; names(outdirs) = filtertags
+outdirs = paste(topoutdir, c('LDA_confidence-filtered', 'LDA_sensitive'), sep='/') ; names(outdirs) = filtertags
+
+readsets = list(c('root', 'unclassified'), c('root'), c('Bacteria', 'Archaea'))
+names(readsets) = c('all', 'classified', 'Prokaryotes')
 
 for (filtertag in filtertags){
 	print(filtertag)
@@ -158,7 +147,7 @@ for (filtertag in filtertags){
 		# remove taxa with no match in any sample
 		presenttax = apply(krakenabun, 1, sum)>0
 		# remove abundance counts from human contamination
-		humanlineage = lkrakenrestab[[1]]$taxid %in% read.table(paste(metaghome, 'human_lineage_taxid.tab', sep='/'), sep='\t', header=T)$taxid
+		humanlineage = lkrakenrestab[[1]]$taxid %in% read.table('human_lineage_taxid.tab', sep='\t', header=T)$taxid
 		
 		samplespecifictaxa = lapply(colnames(krakenabun), function(i){ krakenabun[,i]>0 & rowSums(krakenabun[,colnames(krakenabun)!=i])==0 }) #, mc.cores=nbcores, mc.preschedule=T)
 		names(samplespecifictaxa) = colnames(krakenabun)
@@ -179,20 +168,7 @@ for (filtertag in filtertags){
 		rm(lkrakenrestab, krakenabun)
 		gc()
 	}
-
-	sampleref = read.table(paste(metaghome, 'Philippines_Sample_List.tab', sep='/'), sep='\t', header=T, stringsAsFactors=F)
-	individuals = colnames(cleankrakenabun)
-	populations = as.factor(sapply(individuals, function(x){ if (x %in% sampleref$Sample){ return(sampleref$Population[sampleref$Sample==x]) }else{ return("American") }})) ; names(populations) = individuals
-	lifestyles = factor(sapply(individuals, function(x){ if (x %in% sampleref$Sample){ return(lifeshort[sampleref$Lifestyle][sampleref$Sample==x]) }else{ return("WC") }}), levels=lifeshort) ; names(lifestyles) = individuals
-	#~ lifestyles = as.factor(sapply(individuals, function(x){ if (x %in% sampleref$Sample){ return(lifeshort[sampleref$Lifestyle2][sampleref$Sample==x]) }else{ return("C") }}))
-	localities = as.factor(sapply(individuals, function(x){ if (x %in% sampleref$Sample){ return(sampleref$Locality[sampleref$Sample==x]) }else{ return("USA") }})) ; names(localities) = individuals
-
-	criteria = list(populations, lifestyles, localities)
-	names(criteria) = pll
-
-	readsets = list(c('root', 'unclassified'), c('root'), c('Bacteria', 'Archaea'))
-	names(readsets) = c('all', 'classified', 'Prokaryotes')
-
+	
 	depths = sapply(readsets, function(rs){
 		sapply(colnames(cleankrakenabun), function(s){
 			log10(sum(cleankrakenabun[rs, s]))
@@ -207,10 +183,13 @@ for (filtertag in filtertags){
 	for (refrank in names(refranks)){
 		print(refranks[refrank])
 		# normalize read counts at this taxonomic rank so sum(all counts) = 1
-		normcleankrakenabun = apply(cleankrakenabun[ranks==refrank,], 2, function(x){ x / sum(x) })	
-		#~ normcleankrakenabun = apply(cleankrakenabun[ranks=='S',], 2, function(x){ x / sum(x) })	
-		#~ normcleankrakenabun = apply(cleankrakenabun[ranks=='G',], 2, function(x){ x / sum(x) })	
+		normcleankrakenabun = apply(cleankrakenabun[ranks==refrank,], 2, function(x){ x / sum(x) })
 				
+		individuals = colnames(normcleankrakenabun)
+		# all samples' metadata (from loaded script 'shared_params.r')
+		criteria = getIndividualFactors(individual.labels=individuals)
+		attach(criteria)
+		
 		################################
 		## check sequencing depth effect
 
@@ -298,7 +277,8 @@ for (filtertag in filtertags){
 		# using Linear Discriminant Analysis
 
 		# apply LDA to the dataset with HG vs. (Farmers or Controls) only
-		critpairs = list(list(c('Palawan_Mount', 'Luzon_Mount'), c('Palawan_Mount', 'Luzon_Coast')), list(c('HG', 'AG'), c('HG', 'WC'))) ; names(critpairs) = c('localities', 'lifestyles')
+#~ 		critpairs = list(list(c('Palawan_Mount', 'Luzon_Mount'), c('Palawan_Mount', 'Luzon_Coast')), list(c('HG', 'TF'), c('HG', 'WC'))) ; names(critpairs) = c('localities', 'lifestyles')
+		critpairs = list(list(c('HG', 'TF'), c('HG', 'WC'))) ; names(critpairs) = c('lifestyles')
 		for (crit in names(critpairs)){
 			for (critpair in critpairs[[crit]]){
 				print(critpair)
@@ -321,12 +301,17 @@ for (filtertag in filtertags){
 				topdiscspe50 = names(topdiscvar)[1:50]
 				
 				# perform alll independent t-tests on species abundances
-				ttestpvals = apply(thinednormcleankrakenabun[,crpr], 1, function(speabun){
+				ttestpvals = apply(crprthinednormcleankrakenabun[nocons,], 1, function(speabun){
 	#~ 				tt = t.test(speabun ~ criterion[crpr])
 					tt = wilcox.test(speabun ~ criterion[crpr])
 					return(tt$p.value)
 				})
 				ranked.ttestpvals = ttestpvals[order(ttestpvals)]
+				
+				# ANCOM test (Mandal S et al. (2015). Analysis of composition of microbiomes: a novel method for studying microbial composition. Microbial Ecology in Health and Disease, 26, 1-7.)
+				ancom.result = ANCOM(as.data.frame(t(rbind(crprthinednormcleankrakenabun[nocons,], criterion[crpr]))), multcorr=2)
+				write(ancom.result$detected, file=sprintf('%s/ANCOM_signif_%s_diffabun_%svs%s_truncdata.txt', outdir, refranks[refrank], levels(faccrpr)[1], levels(faccrpr)[2]))
+				
 				# Benjamini–Hochberg procedure
 				signifthresh = 0.05
 				m = length(ranked.ttestpvals)
