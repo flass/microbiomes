@@ -4,6 +4,7 @@ library('ggplot2')
 #~ library('ordPens')
 library('clinfun')
 library('parallel')
+library('ancom.R')
 
 # folder where all data are stored
 cargs = commandArgs(trailingOnly=T)
@@ -44,10 +45,13 @@ pdf(sub('.tsv', '_counts_per_strategy.pdf', nffuncmat, fixed=T), height=12, widt
 
 # do a PCA to make dudi object
 func.pca = dudi.pca(relfuncmat, scannf=F, nf=ncol(relfuncmat), scale=F)
+func.pca.percenteig = func.pca$eig/sum(func.pca$eig)
 # check how it is
 layout(matrix(1:2, 1, 2))
-s.class(func.pca$li, fac=strategy, xax=1, yax=2, col=coullif)	# PC1,2
-s.class(func.pca$li, fac=strategy, xax=3, yax=4, col=coullif)	# PC3,4
+for (pcs in list(1:2, 3:4)){
+  s.class(func.pca$li, fac=strategy, xax=pcs[1], yax=pcs[2], col=coullif, sub=paste(paste('PC', pcs, ':', func.pca.percenteig), collapse='; '))
+}
+
 
 S = combn(nlevels(strategy),2)
 topdiscvars = list()
@@ -82,6 +86,11 @@ for (i in 1:ncol(S)){
 		return(tt$p.value)
 	})
 	ranked.ttestpvals = ttestpvals[order(ttestpvals)]
+	
+	# ANCOM test (Mandal S et al. (2015). Analysis of composition of microbiomes: a novel method for studying microbial composition. Microbial Ecology in Health and Disease, 26, 1-7.)
+	ancom.result = ANCOM(as.data.frame(cbind(pair.relfuncmat, strat)), multcorr=2)
+	write(ancom.result$detected, file=sprintf("%s_ANCOM_signif_diff_relabun_%s", nffuncmat, pastepair))
+	
 	# Benjamini–Hochberg procedure
 	signifthresh = 0.05
 	m = length(ranked.ttestpvals)
