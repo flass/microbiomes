@@ -25,9 +25,9 @@ if (file.exists(nffuncmat)){
 	ffuncmat = file(nffuncmat)
 }else{
 	ebiurl = 'https://www.ebi.ac.uk/metagenomics/projects/ERP016024/download/3.0/export?contentType=text&exportValue=IPR_abundances'
-	cat(sprintf("Local file '%s' does not exist.\nInstead, download dataset from '%s'.\n"), nffuncmat, ebiurl)
+	cat(sprintf("Local file '%s' does not exist.\nInstead, download dataset from '%s'.\n", nffuncmat, ebiurl))
 	ffuncmat = file(ebiurl)
-	nffuncmat = file.path(getwd(), 'ERP016024_IPR_abundances_v3.0.tsv') 
+	nffuncmat = file.path(getwd(), 'ERP016024_IPR_abundances_v3.0.tsv') # to define output file names
 }
 inmat = read.table(ffuncmat, header=T, row.names=1, sep='\t', quote='"')
 funcmat = data.matrix(t(inmat[,-1]))
