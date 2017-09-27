@@ -3,8 +3,10 @@
 ## graphical and metadata parameters for mibrobiome scripts 
 ## these specific parameters relate to the dataset of oral metagenomes from the Philippines
 
-# assumes the script (or its parent) is executed at the root of the repository
-sampleref = read.table(file.path('data', 'Philippines_Sample_List.tsv'), sep='\t', header=T, stringsAsFactors=F)
+repohome = Sys.getenv('repohome')
+# if not specified, assumes the script (or its parent) is executed at the root of the repository
+if ( repohome == "" ){ repohome = getwd() }
+sampleref = read.table(file.path(repohome, 'data/Philippines_Sample_List.tsv'), sep='\t', header=T, stringsAsFactors=F)
 
 lifecat = c('Hunter-gatherer', 'Traditional farmer', 'Western control')
 lifeshort = c('HG', 'TF', 'WC') ; names(lifeshort) = lifecat
@@ -36,9 +38,6 @@ getIndividualFactors = function(indata=NULL, individual.labels=NULL){
 	}else{ 
 		individuals = individual.labels 
 	}
-#~ 	populations = as.factor(sapply(individuals, function(x){ if (x %in% sampleref$Sample){ return(sampleref$Population[sampleref$Sample==x]) }else{ return("American") }}))
-#~ 	lifestyles = factor(sapply(individuals, function(x){ if (x %in% sampleref$Sample){ return(lifeshort[sampleref$Lifestyle1][sampleref$Sample==x]) }else{ return("WC") }}), levels=lifeshort)
-#~ 	localities = as.factor(sapply(individuals, function(x){ if (x %in% sampleref$Sample){ return(sampleref$Locality[sampleref$Sample==x]) }else{ return("USA") }}))
 	populations = as.factor(sapply(individuals, function(x){ sampleref$Population[sampleref$Sample==x] }))
 	lifestyles = factor(sapply(individuals, function(x){ lifeshort[sampleref$Lifestyle1][sampleref$Sample==x] }), levels=lifeshort)
 	localities = as.factor(sapply(individuals, function(x){ sampleref$Locality[sampleref$Sample==x] }))

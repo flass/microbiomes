@@ -11,6 +11,10 @@ library('ggplot2')
 #~ library('vegan')	prefer to use `ecodist::mantel` rather than `vegan::mantel`
 library('ecodist')
 
+repohome = Sys.getenv('repohome')
+# if not specified, assume script is run from the repository top folder
+if ( repohome == "" ){ repohome = getwd() }
+
 # folder where all data are stored
 cargs = commandArgs(trailingOnly=T)
 if (len(cargs)>0){
@@ -21,10 +25,10 @@ if (len(cargs)>0){
 stopifnot((file.exists(metaghomedir) && file.info(metaghomedir)$isdir))
 
 # load shared params and functions
-source('shared_params.r', local=TRUE)
+source(file.path(repohome, 'scripts/shared_params.r'), local=TRUE)
 
 # load GPS-related function
-source('gpscoords.r')
+source(file.path(repohome, 'scripts/gpscoords.r'))
 
 colorWheel = function(angle){
  R = (abs((angle + 180)%%360 - 180) / 180)
@@ -45,7 +49,6 @@ phylosiftmarkerdbdir = paste(metaghomedir, 'phylosift_v1.0.1/markers', sep='/')
 phylosiftmarker = 'concat.updated.annotated'
 phylosiftmarkertag = 'concat.updated'
 guppyresdir = paste(metaghomedir, 'STEP_05_guppy', sep='/')
-humanpopgendir = paste(metaghomedir, 'pop_structure', sep='/')
 epcaresdir = paste(guppyresdir, '33samples.epca_results_std_settings', sep='/')
 
 
@@ -116,10 +119,7 @@ for (namsam in names(samplesets)){
 	
 
 # geolocalization
-
-#~ gps.locs = read.table(file.path(humanpopgendir, "coordinates.tab"), head=T, sep='\t')
-# assume script is run from the repository top folder
-gps.locs = read.table(file.path(getcwd(), "data/philippines.24samples.coordinates.tab"), head=T, sep='\t')
+gps.locs = read.table(file.path(repohome, "data/philippines.24samples.coordinates.tab"), head=T, sep='\t')
 gps.locs$dec.long = apply(gps.locs[paste('long', c('deg', 'min', 'sec'), sep='.')], 1, minutesseconds2decimal.coords)
 gps.locs$dec.lat = apply(gps.locs[paste('lat', c('deg', 'min', 'sec'), sep='.')], 1, minutesseconds2decimal.coords)
 
@@ -255,9 +255,7 @@ for (pcasca in names(pcas)){
 
 	## correlation of microbiome distances with host genetic distances
 	genettag = 'FULL'
-#~ 	hostgendist = as.dist(read.table(paste(humanpopgendir, sprintf('%s.%s.dist', subprefixrestricted, genettag), sep='/'), skip=2, row.names=1))
-	# assume script is run from the repository top folder
-	hostgendist = as.dist(read.table(file.path(getcwd(), 'data/philippines.24samples.genetic.dist'), skip=2, row.names=1))
+	hostgendist = as.dist(read.table(file.path(repohome, 'data/philippines.24samples.genetic.dist'), skip=2, row.names=1))
 	# using all data
 	philippines = attr(hostgendist, 'Labels')
 	nphi = length(philippines)
