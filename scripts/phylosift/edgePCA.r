@@ -109,13 +109,21 @@ rownames(edgediff) = as.character(individuals)
 criteria = getIndividualFactors(individual.labels=individuals)
 attach(criteria)
 
+filipinos = localities!='USA'
+samplesets = list(filipinos, rep(TRUE, length(individuals))) ; names(samplesets) = c('philippines.dataset.24samples', 'meta.analysis.dataset.33samples')
+
+for (namsam in names(samplesets)){
+	
+
 # geolocalization
 
-gps.locs = read.table(file.path(humanpopgendir, "coordinates.tab"), head=T, sep='\t')
+#~ gps.locs = read.table(file.path(humanpopgendir, "coordinates.tab"), head=T, sep='\t')
+# assume script is run from the repository top folder
+gps.locs = read.table(file.path(getcwd(), "data/philippines.24samples.coordinates.tab"), head=T, sep='\t')
 gps.locs$dec.long = apply(gps.locs[paste('long', c('deg', 'min', 'sec'), sep='.')], 1, minutesseconds2decimal.coords)
 gps.locs$dec.lat = apply(gps.locs[paste('lat', c('deg', 'min', 'sec'), sep='.')], 1, minutesseconds2decimal.coords)
 
-average.coords = lapply(unique(sampleref$Population), function(pop){
+average.coords = lapply(unique(as.character(populations[filipinos])), function(pop){
 	average.gps.coords(gps.locs[gps.locs$label==pop, paste('dec', c('long', 'lat'), sep='.')], rad=F)
 })
 names(average.coords) = unique(sampleref$Population)
@@ -128,7 +136,8 @@ ntopedges = 20
 # PCA
 pcaedge.scale_center = dudi.pca(edgediff, scale=T, center=T,  nf=npca, scannf=F)
 pcaedge.noscale_center = dudi.pca(edgediff, scale=F, center=T,  nf=npca, scannf=F) # the one corresponding to guppy's native edgePCA
-pcas = list(pcaedge.scale_center, pcaedge.noscale_center) ; names(pcas) = c('scaled_abundances', 'abundance-weighted')
+#~ pcas = list(pcaedge.scale_center, pcaedge.noscale_center) ; names(pcas) = c('scaled_abundances', 'abundance-weighted')
+pcas = list(pcaedge.noscale_center) ; names(pcas) = c('abundance-weighted')
 
 for (pcasca in names(pcas)){
 	if (pcasca=='scaled_abundances'){ scalingedgevect = 750
@@ -246,7 +255,9 @@ for (pcasca in names(pcas)){
 
 	## correlation of microbiome distances with host genetic distances
 	genettag = 'FULL'
-	hostgendist = as.dist(read.table(paste(humanpopgendir, sprintf('%s.%s.dist', subprefixrestricted, genettag), sep='/'), skip=2, row.names=1))
+#~ 	hostgendist = as.dist(read.table(paste(humanpopgendir, sprintf('%s.%s.dist', subprefixrestricted, genettag), sep='/'), skip=2, row.names=1))
+	# assume script is run from the repository top folder
+	hostgendist = as.dist(read.table(file.path(getcwd(), 'data/philippines.24samples.genetic.dist'), skip=2, row.names=1))
 	# using all data
 	philippines = attr(hostgendist, 'Labels')
 	nphi = length(philippines)

@@ -54,7 +54,8 @@ for (krakenresdir in krakenresdirs){
 }
 
 # load shared params and functions
-source('shared_params.r', local=TRUE)
+# assumes the script is executed at the root of the repository
+source('scripts/shared_params.r', local=TRUE)
 
 nbcores = 4
 
@@ -310,7 +311,7 @@ for (filtertag in filtertags){
 				
 				# ANCOM test (Mandal S et al. (2015). Analysis of composition of microbiomes: a novel method for studying microbial composition. Microbial Ecology in Health and Disease, 26, 1-7.)
 				ancom.result = ANCOM(as.data.frame(t(rbind(crprthinednormcleankrakenabun[nocons,], criterion[crpr]))), multcorr=2)
-				write(ancom.result$detected, file=sprintf('%s/ANCOM_signif_%s_diffabun_%svs%s_truncdata.txt', outdir, refranks[refrank], levels(faccrpr)[1], levels(faccrpr)[2]))
+				write(ancom.result$detected, file=sprintf('%s/ANCOM_signif_%s_diff_relabun_%svs%s_truncdata.txt', outdir, refranks[refrank], levels(faccrpr)[1], levels(faccrpr)[2]))
 				
 				# Benjamini–Hochberg procedure
 				signifthresh = 0.05

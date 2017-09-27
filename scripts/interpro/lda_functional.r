@@ -1,10 +1,20 @@
-#!/share/apps/R/bin/R
+#!/usr/bin/Rscript --vanilla
 library('ade4')
 library('ggplot2')
 #~ library('ordPens')
-library('clinfun')
+#~ library('clinfun')
 library('parallel')
 library('ancom.R')
+
+# load shared params and functions
+# assumes the script is executed at the root of the repository
+source('scripts/shared_params.r', local=TRUE)
+
+nbcores = 4
+
+options(width = 160)
+
+interestingterms = c('Ribosomal protein', 'CRISPR-associated', '([mM]ultidrug|antimicrobial) (resistance|extrusion|efflux)', 'Ketopantoate reductase')
 
 # folder where all data are stored
 cargs = commandArgs(trailingOnly=T)
@@ -13,15 +23,6 @@ if (length(cargs)>0){
 }else{
 	nffuncmat = '~/oral_metagenomes/functional_analysis/ERP016024_IPR_abundances_v3.0.tsv'
 }
-stopifnot((file.exists() && file.info(funcanaldir)$isdir))
-
-# load shared params and functions
-source('scripts/shared_params.r', local=TRUE)
-
-nbcores = 4
-
-options(width = 160)
-
 if (file.exists(nffuncmat)){
 	ffuncmat = file(nffuncmat)
 }else{
@@ -40,16 +41,17 @@ individuals = sapply(rownames(relfuncmat), function(err){ as.character(sampleref
 # all samples' metadata (from loaded script 'shared_params.r')
 criteria = getIndividualFactors(individual.labels=individuals)
 attach(criteria)
+strategy = ordered(lifeshort[lifestyles])
+names(strategy) = individuals
 
 pdf(sub('.tsv', '_counts_per_strategy.pdf', nffuncmat, fixed=T), height=12, width=20)
+layout(matrix(1:2, 1, 2))
 
 # do a PCA to make dudi object
 func.pca = dudi.pca(relfuncmat, scannf=F, nf=ncol(relfuncmat), scale=F)
 func.pca.percenteig = func.pca$eig/sum(func.pca$eig)
-# check how it is
-layout(matrix(1:2, 1, 2))
 for (pcs in list(1:2, 3:4)){
-  s.class(func.pca$li, fac=strategy, xax=pcs[1], yax=pcs[2], col=coullif, sub=paste(paste('PC', pcs, ':', func.pca.percenteig), collapse='; '))
+  s.class(func.pca$li, fac=strategy, xax=pcs[1], yax=pcs[2], col=coullif, sub=paste(paste('PC', pcs, ':', func.pca.percenteig[pcs]), collapse='; '))
 }
 
 
@@ -65,40 +67,47 @@ for (i in 1:ncol(S)){
 	print(stratpair)
 	stratpair.i = which(strategy %in% stratpair)
 	strat = droplevels(strategy[stratpair.i])
-#~ 	print(strat) ; print(length(strat))
 	pair.relfuncmat = data.matrix(relfuncmat[stratpair.i,])
+	# find non constant variables
+	nocons = which(simplify2array(mclapply(1:ncol(pair.relfuncmat), function(j){ var(pair.relfuncmat[,j]) > 0 }, mc.cores=nbcores, mc.preschedule=T)))
 #~ 	print(dim(pair.relfuncmat))
 	# do a PCA to make dudi object
-	pair.func.pca = dudi.pca(pair.relfuncmat, scannf=F, nf=nrow(pair.relfuncmat))
-	print(pair.func.pca$eig / sum(pair.func.pca$eig))
-#~ 	print(func.pca)
-	# check how it is
-	s.class(pair.func.pca$li, fac=strat, xax=1, yax=2, col=coullif[s])	# PC1,2
-	s.class(pair.func.pca$li, fac=strat, xax=3, yax=4, col=coullif[s])	# PC3,4
+	pair.func.pca = dudi.pca(pair.relfuncmat[,nocons], scannf=F, nf=nrow(pair.relfuncmat))
+	pair.func.pca.percenteig = pair.func.pca$eig/sum(pair.func.pca$eig)
+	for (pcs in list(1:2, 3:4)){
+	  print(pcs)
+	  s.class(pair.func.pca$li, fac=strat, xax=pcs[1], yax=pcs[2], col=coullif[s], sub=paste(paste('PC', pcs, ':', func.pca.percenteig[pcs]), collapse='; '))
+	}
 	disc.func = discrimin(pair.func.pca, strat, scannf=F, nf=1)
 	topdiscvar = disc.func$va[order(abs(disc.func$va)[,1], decreasing=T),1]
 #~ 	print(topdiscvar[1:24])
 	
 	# perform alll independent t-tests on species abundances
-	ttestpvals = apply(pair.relfuncmat, 2, function(func){
-#~ 		tt = wilcox.test(func ~ strat)
-		tt = t.test(func ~ strat)
+	ttestpvals = simplify2array(mclapply(nocons, function(j){
+		tt = t.test(pair.relfuncmat[,j] ~ strat)
 		return(tt$p.value)
-	})
+	}, mc.cores=nbcores, mc.preschedule=T))
 	ranked.ttestpvals = ttestpvals[order(ttestpvals)]
+	cat('ranked.ttestpvals:', head(ranked.ttestpvals), '...\n')
 	
-	# ANCOM test (Mandal S et al. (2015). Analysis of composition of microbiomes: a novel method for studying microbial composition. Microbial Ecology in Health and Disease, 26, 1-7.)
-	ancom.result = ANCOM(as.data.frame(cbind(pair.relfuncmat, strat)), multcorr=2)
-	write(ancom.result$detected, file=sprintf("%s_ANCOM_signif_diff_relabun_%s", nffuncmat, pastepair))
+#~ 	# ANCOM test (Mandal S et al. (2015). Analysis of composition of microbiomes: a novel method for studying microbial composition. Microbial Ecology in Health and Disease, 26, 1-7.)
+#~ 	pair.relfuncmat.strat = as.data.frame(cbind(pair.relfuncmat[,nocons], as.character(strat)))
+#~ 	print(dim(pair.relfuncmat.strat))
+#~ 	print(head(pair.relfuncmat.strat[,(ncol(pair.relfuncmat.strat)-10):ncol(pair.relfuncmat.strat)]))
+#~ 	ancom.result = ANCOM(pair.relfuncmat.strat, multcorr=2, ncore=nbcores)
+#~ 	plot_ancom(ancom.result)
+#~ 	write(ancom.result$detected, file=sprintf("%s_ANCOM_signif_diff_relabun_%s", nffuncmat, pastepair))
+#~ 	cat('ancom.result$detected:', head(ancom.result$detected), '...\n')
+	# computation does not return within a day; also does not use the specified multiple cores
 	
 	# Benjamini–Hochberg procedure
 	signifthresh = 0.05
 	m = length(ranked.ttestpvals)
-	BHcor.ttestpvals = sapply(1:m, function(k){ ranked.ttestpvals[k] * m / k })
+	BHcor.ttestpvals = simplify2array(mclapply(1:m, function(k){ ranked.ttestpvals[k] * m / k }, mc.cores=nbcores, mc.preschedule=T))
 	topsignif = which(BHcor.ttestpvals <= signifthresh)
 	topsignifdisc = order(ttestpvals)[topsignif]
 	topsignifdiscvar = ttestpvals[topsignifdisc]
-#~ 	print(topsignifdiscvar)
+	cat('topsignifdiscvar:', head(topsignifdiscvar), '...\n')
 	
 #~ 	outnames = names(topdiscvar[1:30])
 	outnames = names(topdiscvar)
@@ -133,7 +142,7 @@ save(summary.pw.lda, file=sprintf("%s_summary_LDAandJonckheere.RData", nffuncmat
 #~ print(head(summary.pw.lda[order(abs(summary.pw.lda$summed.loadings), decreasing=T), c(grep('loading', colnames(summary.pw.lda), value=T), 'description', 'jonckheere.test.p.value')], n=30))
 #~ print(head(summary.pw.lda[order(summary.pw.lda$summed.ranks,         decreasing=F), c(grep('rank',    colnames(summary.pw.lda), value=T), 'description')], n=30))
 
-for (functerm in c('Ribosomal protein', 'CRISPR-associated', '([mM]ultidrug|antimicrobial) (resistance|extrusion|efflux)', 'Ketopantoate reductase')){
+for (functerm in interestingterms){
 	t = summary.pw.lda[grep(functerm, summary.pw.lda$description), c(grep('loading', colnames(summary.pw.lda), value=T), 'jonckheere.test.p.value', 'description')]
 	print(functerm)
 	print(t[order(abs(t$summed.loadings), decreasing=T),])
