@@ -14,6 +14,7 @@ popcat = c('Aeta', 'Agta', 'Batak', 'Tagbanua', 'Zambal', 'Casigurani', 'America
 popshort = c('Ae', 'Ag', 'Ba', 'Ta', 'Za', 'Ca', 'WC') ; names(popshort) = popcat
 loccat = c('Palawan_Mount', 'Luzon_Mount', 'Luzon_Coast', 'USA')
 locshort = c('PM', 'LM', 'LC', 'WC') ; names(locshort) = loccat
+batchcat = c(1:3, 'SRS', 'VFD')
 
 pll = c('populations', 'lifestyles', 'localities', 'batches')
 coulpop = c('black', 'slateblue', 'blue', 'violetred1', 'chartreuse3', 'goldenrod', 'red2')
@@ -31,6 +32,7 @@ pchloc = c(17, 17, 17, 16, 16, 16, 15)
 names(pchloc) = names(coulpop)
 lpch = list(pchpop, pchlif, pchloc, NULL) ; names(lpch) = pll
 
+critcat = list(popcat, lifecat, loccat, batchcat) ; names(critcat) = pll
 
 getIndividualFactors = function(indata=NULL, individual.labels=NULL){
 	if (is.null(individual.labels)){

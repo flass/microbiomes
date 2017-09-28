@@ -17,7 +17,7 @@ if ( repohome == "" ){ repohome = getwd() }
 
 # folder where all data are stored
 cargs = commandArgs(trailingOnly=T)
-if (len(cargs)>0){
+if (length(cargs)>0){
 	metaghomedir = cargs[1]
 }else{
 	metaghomedir = file.path(getwd(), 'oral_metagenomes')
@@ -112,30 +112,37 @@ rownames(edgediff) = as.character(individuals)
 criteria = getIndividualFactors(individual.labels=individuals)
 attach(criteria)
 
+## diferent datasets
 filipinos = localities!='USA'
-samplesets = list(filipinos, rep(TRUE, length(individuals))) ; names(samplesets) = c('philippines.dataset.24samples', 'meta.analysis.dataset.33samples')
-
-for (namsam in names(samplesets)){
-	
+nrindiv = !(individuals %in% c('SRS015055', 'SRS013942'))	# HMP samples pairs (SRS014468, SRS015055) and (SRS019120, SRS013942) are from the same individuals at different time points
+samplesets = list(filipinos, nrindiv, rep(TRUE, length(individuals)))
+names(samplesets) = c('philippines.dataset.24samples', 'meta.analysis.dataset.31samples', 'meta.analysis.dataset.33samples')
 
 # geolocalization
 gps.locs = read.table(file.path(repohome, "data/philippines.24samples.coordinates.tab"), head=T, sep='\t')
 gps.locs$dec.long = apply(gps.locs[paste('long', c('deg', 'min', 'sec'), sep='.')], 1, minutesseconds2decimal.coords)
 gps.locs$dec.lat = apply(gps.locs[paste('lat', c('deg', 'min', 'sec'), sep='.')], 1, minutesseconds2decimal.coords)
 
-average.coords = lapply(unique(as.character(populations[filipinos])), function(pop){
+filpop = unique(as.character(populations[filipinos]))
+average.coords = lapply(filpop, function(pop){
 	average.gps.coords(gps.locs[gps.locs$label==pop, paste('dec', c('long', 'lat'), sep='.')], rad=F)
 })
-names(average.coords) = unique(sampleref$Population)
+names(average.coords) = filpop
 average.coords[['Tagbanua']] = average.coords[['Batak']]
 
-K = dim(edgediff)[1] - 1
-npca = K
+for (namsam in names(samplesets)){
+cat(sprintf("sample set: %s\n", namsam))
+sampleset = samplesets[[namsam]]
+dir.create(file.path(epcaresdir, namsam), showWarnings=F)
+
+K = length(which(sampleset)) - 1
+#~ npca = K
+npca = 4
 ntopedges = 20
 # dudi.pca + lda <=> dapc
 # PCA
-pcaedge.scale_center = dudi.pca(edgediff, scale=T, center=T,  nf=npca, scannf=F)
-pcaedge.noscale_center = dudi.pca(edgediff, scale=F, center=T,  nf=npca, scannf=F) # the one corresponding to guppy's native edgePCA
+pcaedge.scale_center = dudi.pca(edgediff[sampleset,], scale=T, center=T,  nf=npca, scannf=F)
+pcaedge.noscale_center = dudi.pca(edgediff[sampleset,], scale=F, center=T,  nf=npca, scannf=F) # the one corresponding to guppy's native edgePCA
 #~ pcas = list(pcaedge.scale_center, pcaedge.noscale_center) ; names(pcas) = c('scaled_abundances', 'abundance-weighted')
 pcas = list(pcaedge.noscale_center) ; names(pcas) = c('abundance-weighted')
 
@@ -146,34 +153,41 @@ for (pcasca in names(pcas)){
 	pcali = pcas[[pcasca]]$li
 	pcaco = pcas[[pcasca]]$c1
 	pcaeig = pcas[[pcasca]]$eig
-	print(paste(npca, 'PCs, % variance explained:', paste((pcaeig/sum(pcaeig))[1:npca], collapse=' ', sep=' '), sep=' '))
-	pdf(paste(epcaresdir, paste(prefix, 'ePCA', pcasca, 'pdf', sep='.'), sep='/'), width=20, height=20)
+	pcaeig.percent = 100*pcaeig/sum(pcaeig)
+	cat(sprintf('%d PCs, %% variance explained: %s\n', npca, paste(round(pcaeig.percent, digits=3)[1:npca], collapse=' ')))
+	nfpdfsam = file.path(epcaresdir, namsam, paste(prefix, 'ePCA', pcasca, 'pdf', sep='.'))
+	pdf(nfpdfsam, width=20, height=20)
 	for (k in 1:length(criteria)){
-		for (npc in 1:2){
-			xax=((npc-1)*2)+1 ; yax=npc*2
-			
+		for (npc in 1:(npca%/%2)){
+			xax=((npc-1)*2)+1 ; yax=npc*2 ; pcs = c(xax, yax)
+			print(pcs)
 			## just project the individuals
-			s.class(pcali, xax=xax, yax=yax, fac=criteria[[k]], col=lcoul[[k]][levels(criteria[[k]])],
-			 cellipse=0, cstar=0, cpoint=3, clabel=0, grid=F, axesell=F, pch=lpch[[k]][as.character(populations)])
+			print(head(pcali))
+			s.class(pcali, xax=xax, yax=yax, fac=criteria[[k]][sampleset], col=lcoul[[k]][critcat[[k]]],
+			 cellipse=0, cstar=0, cpoint=3, clabel=0, grid=F, axesell=F, pch=lpch[[k]][as.character(populations)], 
+			 sub=paste(paste('PC', pcs, ':', pcaeig.percent[pcs], '%'), collapse='; '))
 
 			## build the list of edges with the most significant variation on these axis
 			# take the union of top edges at both extremities of the spectrum in both axes
 			topedges = union(c(head(order(pcaco[,xax]), n=ntopedges), head(order(pcaco[,xax], decreasing=T), n=ntopedges)),
 			 c(head(order(pcaco[,yax]), n=ntopedges), head(order(pcaco[,yax], decreasing=T), n=ntopedges)))
 			## samples elispsis and points
-			s.class(pcali, xax=xax, yax=yax, fac=criteria[[k]], col=lcoul[[k]][levels(criteria[[k]])],
-			 sub=sprintf("ePCA, axis %d and %d\ngrouped by %s", xax, yax, names(criteria)[k]), possub="bottomleft",
-			 csub=3, cellipse=1, cpoint=3, clabel=2.5, grid=F, axesell=F, pch=lpch[[k]][as.character(populations)]
+			s.class(pcali, xax=xax, yax=yax, fac=criteria[[k]][sampleset], col=lcoul[[k]][critcat[[k]]],
+			 sub=sprintf("ePCA, axis %d (%g%%) and %d (%g%%)\ngrouped by %s", xax, pcaeig.percent[xax], yax, pcaeig.percent[yax], names(criteria)[k]), possub="bottomleft",
+			 csub=3, cellipse=1, cpoint=3, clabel=2.5, grid=F, axesell=F, pch=lpch[[k]][as.character(populations)])
 			)
 			## samples elispsis and points + top variables vectors and labels
-			s.class(pcali, xax=xax, yax=yax, fac=criteria[[k]], col=lcoul[[k]][levels(criteria[[k]])],
-			 sub=sprintf("ePCA, axis %d and %d\ngrouped by %s", xax, yax, names(criteria)[k]), possub="bottomleft",
+			s.class(pcali, xax=xax, yax=yax, fac=criteria[[k]][sampleset], col=lcoul[[k]][critcat[[k]]],
+			 sub=sprintf("ePCA, axis %d (%g%%) and %d (%g%%)\ngrouped by %s", xax, pcaeig.percent[xax], yax, pcaeig.percent[yax], names(criteria)[k]), possub="bottomleft",
 			 csub=3, cellipse=1, cpoint=3, clabel=2.5, grid=F, axesell=F, pch=lpch[[k]][as.character(populations)]
 			)
 			s.arrow(pcaco[topedges,]*scalingedgevect, xax=xax, yax=yax, label=edgenames[topedges], add.plot=T)
 			
 			## samples elispsis + selected top variables vectors (coloured) and labels
-			s.class(pcali, xax=xax, yax=yax, fac=criteria[[k]], col=lcoul[[k]][levels(criteria[[k]])], clabel=2.5, axesell=F, csub=3, sub=sprintf("ePCA, axis %d and %d\ngrouped by %s", xax, yax, names(criteria)[k]), possub="bottomleft", cellipse=1, cpoint=0, cstar=0, grid=F)
+			s.class(pcali, xax=xax, yax=yax, fac=criteria[[k]][sampleset], col=lcoul[[k]][critcat[[k]]],
+			 sub=sprintf("ePCA, axis %d (%g%%) and %d (%g%%)\ngrouped by %s", xax, pcaeig.percent[xax], yax, pcaeig.percent[yax], names(criteria)[k]), possub="bottomleft", 
+			 csub=3, cellipse=1, cpoint=0, clabel=2.5, grid=F, axesell=F, cstar=0
+			)
 			
 			# selects only the highest diverging edge within those sharing one same name
 			nrtopedges = sapply(unique(edgenames[topedges]), function(en){
@@ -196,7 +210,7 @@ for (pcasca in names(pcas)){
 		}
 	}
 	dev.off()
-	
+	cat(sprintf("ePCA graphics in PDF file: '%s'\n", nfpdfsam))
 	
 	for (i in 1:4){
 		pc = pcali[,i]
@@ -206,7 +220,7 @@ for (pcasca in names(pcas)){
 		print(ordPens::ordAOV(as.integer(lifestyles), pc))
 	}
 	# write R-based PC table for projection on tree
-	write.table(t(pcaco), file=paste(epcaresdir, paste(prefix, 'ePCA', pcasca, npca, 'PC.csv', sep='.'), sep='/'), sep=',', col.names=F, row.names=T, quote=T)
+	write.table(t(pcaco), file=file.path(epcaresdir, namsam, paste(prefix, 'ePCA', pcasca, npca, 'PC.csv', sep='.')), sep=',', col.names=F, row.names=T, quote=T)
 
 	# write RGB components + width associates with each edge, based on pairs of PCs
 
@@ -228,20 +242,20 @@ for (pcasca in names(pcas)){
 	print(disc.pcali$scaling)
 	disc.pcali.varvect = sapply(1:(nlevels(lifestyles)-1), function(ld){ rowSums(sapply(1:4, function(k){ pcaco[,k] * disc.pcali$scaling[k,ld] })) })
 	colnames(disc.pcali.varvect) = colnames(disc.pcali$scaling)
-	write.table(t(disc.pcali.varvect), file=paste(epcaresdir, paste(prefix, 'dapc', pcasca, crit, npca, 'PC.var.vect.csv', sep='.'), sep='/'), sep=',', col.names=F, row.names=T, quote=T)
+	write.table(t(disc.pcali.varvect), file=file.path(epcaresdir, namsam, paste(prefix, 'dapc', pcasca, crit, npca, 'PC.var.vect.csv', sep='.')), sep=',', col.names=F, row.names=T, quote=T)
 
 	# DAPC
 	dapcls = dapc(edgediff, lifestyles, n.pca=npca, n.da=2)
 	print(summary(dapcls))
 	print(dapcls$loadings) # linear combination of PC axis into LD axis
-	write.table(t(dapcls$var.contr), file=paste(epcaresdir, paste(prefix, 'dapc', pcasca, crit, npca, 'PC.var.contr.csv', sep='.'), sep='/'), sep=',', col.names=F, row.names=T, quote=T)
+	write.table(t(dapcls$var.contr), file=file.path(epcaresdir, namsam, paste(prefix, 'dapc', pcasca, crit, npca, 'PC.var.contr.csv', sep='.')), sep=',', col.names=F, row.names=T, quote=T)
 
 	nd = 3
 	## calculate the part of total variance exlained by DA axis
 #~ 	print(RVAideMemoire::DA.var(disc.pcali))
 	print(RVAideMemoire::MVA.synt(disc.pcali))
 
-	pdf(paste(epcaresdir, paste(prefix, 'dapc', pcasca, npca, 'PC.pdf', sep='.'), sep='/'), width=15, height=15)
+	pdf(file.path(epcaresdir, namsam, paste(prefix, 'dapc', pcasca, npca, 'PC.pdf', sep='.')), width=15, height=15)
 	scatter(dapcls, col=coullif, pch=lpch[[k]][as.character(populations)])	
 	text(x=mean(dapcls$ind.coord[,1]), y=min(dapcls$ind.coord[,2])+(max(dapcls$ind.coord[,2])-min(dapcls$ind.coord[,2]))*0.8, labels=paste('DAPC, considering', npca, 'axis'))
 	loadingplot(dapcls$var.contr, axis=2)
@@ -249,7 +263,7 @@ for (pcasca in names(pcas)){
 	legend('topright', colnames(dapcls$posterior), fill=coullif)
 	mtext(text=individuals, at=bp, side=1, line=1, col=coullif[lifestyles], las=2)
 	dev.off()
-	pdf(paste(epcaresdir, paste(prefix, 'dapc', pcasca, npca, 'PC.mini.pdf', sep='.'), sep='/'), width=5, height=5)
+	pdf(file.path(epcaresdir, namsam, paste(prefix, 'dapc', pcasca, npca, 'PC.mini.pdf', sep='.')), width=5, height=5)
 	scatter(dapcls, col=coullif, pch=lpch[[k]][as.character(populations)])	
 	dev.off()
 
@@ -323,12 +337,12 @@ for (pcasca in names(pcas)){
 #~ 		vegan::mantel.partial(xdis=microbdist, ydis=hostgendist, zdis=geographicdist, permutations=9999, method=tolower(mantelmethod))
 	}))	
 	
-	write.table(mantelgenmicrobdists, file=paste(epcaresdir, paste(subprefix, 'Mantel', genettag, 'GenetDistvsPCA', pcasca, 'tab', sep='.'), sep='/'))
-	write.table(mantelgeomicrobdists, file=paste(epcaresdir, paste(subprefix, 'Mantel', genettag, 'GeographyDistvsPCA', pcasca, 'tab', sep='.'), sep='/'))
-	write.table(partialmantelgenmicrobdists, file=paste(epcaresdir, paste(subprefix, 'partialMantel', genettag, 'GenetDistMinusGeographyDistvsPCA', pcasca, 'tab', sep='.'), sep='/'))
-	write.table(partialmantelgeomicrobdists, file=paste(epcaresdir, paste(subprefix, 'partialMantel', genettag, 'GeographytDistMinusGeographyDistvsPCA', pcasca, 'tab', sep='.'), sep='/'))
+	write.table(mantelgenmicrobdists, file=file.path(epcaresdir, namsam, paste(subprefix, 'Mantel', genettag, 'GenetDistvsPCA', pcasca, 'tab', sep='.')))
+	write.table(mantelgeomicrobdists, file=file.path(epcaresdir, namsam, paste(subprefix, 'Mantel', genettag, 'GeographyDistvsPCA', pcasca, 'tab', sep='.')))
+	write.table(partialmantelgenmicrobdists, file=file.path(epcaresdir, namsam, paste(subprefix, 'partialMantel', genettag, 'GenetDistMinusGeographyDistvsPCA', pcasca, 'tab', sep='.')))
+	write.table(partialmantelgeomicrobdists, file=file.path(epcaresdir, namsam, paste(subprefix, 'partialMantel', genettag, 'GeographytDistMinusGeographyDistvsPCA', pcasca, 'tab', sep='.')))
 	
-	pdf(paste(epcaresdir, paste(prefix, 'ePCA', pcasca, 'correlations', genettag, 'pdf', sep='.'), sep='/'), width=10, height=10)
+	pdf(file.path(epcaresdir, namsam, paste(prefix, 'ePCA', pcasca, 'correlations', genettag, 'pdf', sep='.')), width=10, height=10)
 	for (mPC in names(allmicrobdist)){
 		p = ggplot(data = plotdf, aes(host.genetic.distances, eval(mPC))) + geom_point()
 #~ 		p = ggplot(data = plotdf, aes(host.genetic.distances, microbiome.PC.3)) + geom_point()
@@ -343,7 +357,7 @@ for (pcasca in names(pcas)){
 }
 
 # PCA made by guppy uses a diffrent projection! Also eigen vectors direction are not expected to have a particular meaning here
-pdf(paste(epcaresdir, paste(prefix, 'GUPPY-projected.ePCA.pdf', sep='.'), sep='/'), width=15, height=15)
+pdf(file.path(epcaresdir, namsam, paste(prefix, 'GUPPY-projected.ePCA.pdf', sep='.')), width=15, height=15)
 for (k in 1:length(criteria)){
 	for (npc in 1:2){
 		xax=((npc-1)*2)+1 ; yax=npc*2
@@ -353,3 +367,5 @@ for (k in 1:length(criteria)){
 	}
 }
 dev.off()
+
+}
