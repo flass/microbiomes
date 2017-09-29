@@ -20,7 +20,6 @@ export prefixrestricted='33samples'
 export prefix="alledges.$prefixrestricted"
 export subprefixrestricted='24samples'
 export subprefix="alledges.$subprefixrestricted"
-export prefix16S='HMP+WGS_16s_reps_bac'
 
 ## get placement mass diferences across edge (do not prune non-significant edges)
 $bins/guppy splitify -o $prefixrestricted.edgediff --epsilon 0 --kappa 1 --prefix alledges. --out-dir $resepca $resjplace/*.jplace
