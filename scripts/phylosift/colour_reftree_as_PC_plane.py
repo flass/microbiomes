@@ -8,10 +8,8 @@ def get_all_children(clade):
 		children += get_all_children(child)
 	return children
 
-resepcadir = os.environ['resepca']
-pcasca = os.environ['pcasca']
-#resepcadir = sys.argv[1]
-#pcasca = sys.argv[2]
+resepcadir = sys.argv[1]
+pcasca = sys.argv[2]
 
 
 if pcasca=='scaled_abundances':

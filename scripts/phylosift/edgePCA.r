@@ -45,22 +45,24 @@ prefix = Sys.getenv()['prefix']
 subprefix = Sys.getenv()['subprefix']
 prefixrestricted = Sys.getenv()['prefixrestricted']
 subprefixrestricted = Sys.getenv()['subprefixrestricted']
+phylosiftmarkerdbdir = Sys.getenv()['refpkg']
+phylosiftmarker = Sys.getenv()['marker']
+guppyresdir = Sys.getenv()['resjplace']
+epcaresdir = Sys.getenv()['resepca']
 
 if (is.na(prefix)){ prefix = 'alledges.33samples' }
 if (is.na(prefixrestricted)){ prefixrestricted = '33samples' }
 if (is.na(subprefix)){ subprefix = 'alledges.24samples' }
 if (is.na(subprefixrestricted)){ subprefixrestricted = '24samples' }
-
-phylosiftmarkerdbdir = paste(metaghomedir, 'phylosift_v1.0.1/markers', sep='/')
-phylosiftmarker = 'concat.updated.annotated'
-phylosiftmarkertag = 'concat.updated'
-guppyresdir = paste(metaghomedir, 'STEP_05_guppy', sep='/')
-epcaresdir = paste(guppyresdir, '33samples.epca_results_std_settings', sep='/')
+if (is.na(phylosiftmarkerdbdir)){ phylosiftmarkerdbdir = file.path(metaghomedir, 'phylosift_v1.0.1/markers') }
+if (is.na(phylosiftmarker)){ phylosiftmarker = 'concat.updated' }
+if (is.na(guppyresdir)){ guppyresdir = file.path(metaghomedir, 'STEP_05_guppy') }
+if (is.na(epcaresdir)){ epcaresdir = file.path(guppyresdir, '33samples.epca_results_std_settings') }
 
 
 ## load the taxon names associated with the edges of the reference tree from NCBI Taxonomy database
 ## !!! requires a local PosgreSQL build of the NCBI Taxonomy database !!!
-nfedgenames = paste(phylosiftmarkerdbdir, phylosiftmarker, paste(phylosiftmarkertag, 'taxonmap.names', sep='.'), sep='/')
+nfedgenames = sprintf( "%s/%s.annotated/%s.taxonmap.names", phylosiftmarkerdbdir, phylosiftmarker, phylosiftmarker)
 if (!file.exists(nfedgenames)){
 	library('DBI')
 	library('RPostgreSQL')
@@ -141,7 +143,8 @@ for (namsam in names(samplesets)){
 cat(sprintf("sample set: %s\n", namsam))
 sampleset = samplesets[[namsam]]
 dir.create(file.path(epcaresdir, namsam), showWarnings=F)
-print(sampleset)
+print(individuals[sampleset])
+write(individuals[sampleset], file=file.path(epcaresdir, namsam, "sample.list"))
 
 K = length(which(sampleset)) - 1
 #~ npca = K
@@ -172,31 +175,30 @@ for (pcasca in names(pcas)){
 		for (npc in 1:(npca%/%2)){
 			xax=((npc-1)*2)+1 ; yax=npc*2 ; pcs = c(xax, yax)
 			print(pcs)
-			print(head(pcali))
-			## just project the individuals
+			subtitle = sprintf("ePCA, axis %d (%g%%) and %d (%g%%)\ngrouped by %s", xax, pcaeig.percent[xax], yax, pcaeig.percent[yax], names(criteria)[k])
+			## basic scatter plot
+			scatter(pcas[[pcasca]], xax=xax, yax=yax, clab.col=0, sub=subtitle, possub="bottomleft")
+			
+			## just project the individuals as dots
 			s.class(pcali, xax=xax, yax=yax, fac=crit, col=lcoul[[k]][levels(crit)],
-			 cellipse=0, cstar=0, cpoint=3, clabel=0, grid=F, axesell=F, pch=lpch[[k]][as.character(populations)], 
-			 sub=paste(paste('PC', pcs, ':', pcaeig.percent[pcs], '%'), collapse='; '))
+			 cellipse=0, cstar=0, cpoint=3, clabel=0, grid=F, axesell=F, pch=lpch[[k]][as.character(populations)], sub=subtitle, possub="bottomleft")
 
 			## build the list of edges with the most significant variation on these axis
 			# take the union of top edges at both extremities of the spectrum in both axes
 			topedges = union(c(head(order(pcaco[,xax]), n=ntopedges), head(order(pcaco[,xax], decreasing=T), n=ntopedges)),
 			 c(head(order(pcaco[,yax]), n=ntopedges), head(order(pcaco[,yax], decreasing=T), n=ntopedges)))
 			## samples elispsis and points
-			s.class(pcali, xax=xax, yax=yax, fac=crit, col=lcoul[[k]][levels(crit)],
-			 sub=sprintf("ePCA, axis %d (%g%%) and %d (%g%%)\ngrouped by %s", xax, pcaeig.percent[xax], yax, pcaeig.percent[yax], names(criteria)[k]), possub="bottomleft",
+			s.class(pcali, xax=xax, yax=yax, fac=crit, col=lcoul[[k]][levels(crit)], sub=subtitle, possub="bottomleft",
 			 csub=3, cellipse=1, cpoint=3, clabel=2.5, grid=F, axesell=F, pch=lpch[[k]][as.character(populations)]
 			)
 			## samples elispsis and points + top variables vectors and labels
-			s.class(pcali, xax=xax, yax=yax, fac=crit, col=lcoul[[k]][levels(crit)],
-			 sub=sprintf("ePCA, axis %d (%g%%) and %d (%g%%)\ngrouped by %s", xax, pcaeig.percent[xax], yax, pcaeig.percent[yax], names(criteria)[k]), possub="bottomleft",
+			s.class(pcali, xax=xax, yax=yax, fac=crit, col=lcoul[[k]][levels(crit)], sub=subtitle, possub="bottomleft",
 			 csub=3, cellipse=1, cpoint=3, clabel=2.5, grid=F, axesell=F, pch=lpch[[k]][as.character(populations)]
 			)
 			s.arrow(pcaco[topedges,]*scalingedgevect, xax=xax, yax=yax, label=edgenames[topedges], add.plot=T)
 			
 			## samples elispsis + selected top variables vectors (coloured) and labels
-			s.class(pcali, xax=xax, yax=yax, fac=crit, col=lcoul[[k]][levels(crit)],
-			 sub=sprintf("ePCA, axis %d (%g%%) and %d (%g%%)\ngrouped by %s", xax, pcaeig.percent[xax], yax, pcaeig.percent[yax], names(criteria)[k]), possub="bottomleft", 
+			s.class(pcali, xax=xax, yax=yax, fac=crit, col=lcoul[[k]][levels(crit)], sub=subtitle, possub="bottomleft", 
 			 csub=3, cellipse=1, cpoint=0, clabel=2.5, grid=F, axesell=F, cstar=0
 			)
 			
@@ -221,13 +223,20 @@ for (pcasca in names(pcas)){
 	dev.off()
 	cat(sprintf("ePCA graphics in PDF file: '%s'\n", nfpdfsam))
 	
+	lifestyle = droplevels(lifestyles[sampleset])
+	locality = droplevels(localities[sampleset])
 	for (i in 1:4){
+		cat(sprintf("ePCA, axis %d:\n", i))
 		pc = pcali[,i]
-		print(summary(aov(lm(pc  ~ lifestyles[sampleset]))))
-		print(summary(aov(lm(pc  ~ lifestyles[sampleset] * localities[sampleset]))))
-		print(summary(aov(lm(pc  ~ localities[sampleset] * lifestyles[sampleset]))))
+		cat(sprintf("ANOVA: PC%d  ~ lifestyles\n", i))
+		print(summary(aov(lm(pc  ~ lifestyle))))
+		cat(sprintf("ANOVA: PC%d  ~ lifestyles * localities\n", i))
+		print(summary(aov(lm(pc  ~ lifestyle * locality))))
+		cat(sprintf("ANOVA: PC%d  ~ localities * lifestyles\n", i))
+		print(summary(aov(lm(pc  ~ locality * lifestyle))))
 #~ 		print(ordPens::ordAOV(as.integer(lifestyles[sampleset]), pc))
-		print(ordAOV(as.integer(lifestyles[sampleset]), pc))
+		cat(sprintf("ordered ANOVA: PC%d  ~ lifestyles\n", i))
+		print(ordAOV(as.integer(lifestyle), pc))
 	}
 	# write R-based PC table for projection on tree
 	write.table(t(pcaco), file=file.path(epcaresdir, namsam, paste('ePCA', pcasca, npca, 'PC.csv', sep='.')), sep=',', col.names=F, row.names=T, quote=T)
@@ -241,23 +250,25 @@ for (pcasca in names(pcas)){
 	}
 
 	## LDA
+	cat(sprintf("LDA: microbiome PC1-%d ~ lifestyles\n", npca))
 	crit = 'lifestyles'
-	critlif = droplevels(lifestyles[sampleset])
-	disc.pcali = lda(as.matrix(pcali), grouping=critlif)
+	disc.pcali = lda(as.matrix(pcali), grouping=lifestyle)
 	# test significacne of DA
-	manova.pcali = manova(as.matrix(pcali) ~ critlif)
+	cat(sprintf("MANOVA: microbiome PC1-%d ~ lifestyles\n", npca))
+	manova.pcali = manova(as.matrix(pcali) ~ lifestyle)
 	print(summary(manova.pcali, test='Pillai'))
 	print(summary(manova.pcali, test='Roy'))
 
 	# PCA column normed scores (principal axis ??) * linear coefficients for transformation of PC axis into LD axis
-	nda = nlevels(critlif)-1
+	nda = nlevels(lifestyle)-1
 	print(disc.pcali$scaling)
 	disc.pcali.varvect = sapply(1:(nda), function(ld){ rowSums(sapply(1:4, function(k){ pcaco[,k] * disc.pcali$scaling[k,ld] })) })
 	colnames(disc.pcali.varvect) = colnames(disc.pcali$scaling)
 	write.table(t(disc.pcali.varvect), file=file.path(epcaresdir, namsam, paste('dapc', pcasca, crit, npca, 'PC.var.vect.csv', sep='.')), sep=',', col.names=F, row.names=T, quote=T)
 
 	# DAPC
-	dapcls = dapc(edgediff[sampleset,], critlif, n.pca=npca, n.da=nda)
+	cat(sprintf("DAPC: microbiome PC1-%d ~ lifestyles\n", npca))
+	dapcls = dapc(edgediff[sampleset,], lifestyle, n.pca=npca, n.da=nda)
 	print(summary(dapcls))
 	print(dapcls$loadings) # linear combination of PC axis into LD axis
 	write.table(t(dapcls$var.contr), file=file.path(epcaresdir, namsam, paste('dapc', pcasca, crit, npca, 'PC.var.contr.csv', sep='.')), sep=',', col.names=F, row.names=T, quote=T)
@@ -273,7 +284,7 @@ for (pcasca in names(pcas)){
 	}	
 	bp = barplot(t(dapcls$posterior), beside=F, col=coullif[colnames(dapcls$posterior)], names.arg=rep('', length(individuals[sampleset])), main="Posterior Probabilities of individuals belonging to a group")
 	legend('topright', colnames(dapcls$posterior), fill=coullif)
-	mtext(text=individuals[sampleset], at=bp, side=1, line=1, col=coullif[critlif], las=2)
+	mtext(text=individuals[sampleset], at=bp, side=1, line=1, col=coullif[lifestyle], las=2)
 	dev.off()
 	npdfdapcmini = sub('PC.pdf', 'PC.mini.pdf', npdfdapc, fixed=T)
 	pdf(npdfdapcmini, width=5, height=5)
@@ -287,7 +298,7 @@ for (pcasca in names(pcas)){
 	# using all data
 	genetindiv = attr(hostgendist, 'Labels')
 	nphi = length(genetindiv)
-	totalmicrobdist = list(dist(edgediff[genetindiv,], method="euclidean")) ; names(totalmicrobdist) = 'total'
+	totalmicrobdist = list(dist(edgediff[genetindiv,], method="euclidean")) ; names(totalmicrobdist) = 'microbiome.total'
 	# using only 1 of the first 4 PC axis
 	onePCmicrobdist = lapply(1:4, function(pc){
 		as.dist(sapply(genetindiv, function(x){
@@ -322,9 +333,6 @@ for (pcasca in names(pcas)){
 		names(gd) = genetindiv
 		return(gd)
 	}))
-	
-	plotdf = as.data.frame(sapply(c(allmicrobdist, list(host.genetic.distances=hostgendist, geographic.distances=geographicdist)), function(x){ as.numeric(x) }))
-
 
 	# test influence of host genetics
 	mantelgenmicrobdists = t(sapply(allmicrobdist, function(microbdist){ 
@@ -350,20 +358,25 @@ for (pcasca in names(pcas)){
 #~ 		vegan::mantel.partial(xdis=microbdist, ydis=hostgendist, zdis=geographicdist, permutations=9999, method=tolower(mantelmethod))
 	}))	
 	
-	write.table(mantelgenmicrobdists, file=file.path(epcaresdir, namsam, paste('Mantel', genettag, 'GenetDistvsPCA', pcasca, 'tab', sep='.')))
+	write.table(mantelgenmicrobdists, file=file.path(epcaresdir, namsam, paste('Mantel', genettag, 'GenetDistvsPCA', pcasca, 'tab', sep='.')), sep='\t')
 	write.table(mantelgeomicrobdists, file=file.path(epcaresdir, namsam, paste('Mantel', genettag, 'GeographyDistvsPCA', pcasca, 'tab', sep='.')))
-	write.table(partialmantelgenmicrobdists, file=file.path(epcaresdir, namsam, paste('partialMantel', genettag, 'GenetDistMinusGeographyDistvsPCA', pcasca, 'tab', sep='.')))
-	write.table(partialmantelgeomicrobdists, file=file.path(epcaresdir, namsam, paste('partialMantel', genettag, 'GeographytDistMinusGeographyDistvsPCA', pcasca, 'tab', sep='.')))
-	cat(sprintf("Mantel test tables written in files: '%s'\n", file.path(epcaresdir, namsam, paste('Mantel', genettag, '*', pcasca, 'tab', sep='.'))))
+	write.table(partialmantelgenmicrobdists, file=file.path(epcaresdir, namsam, paste('partialMantel', genettag, 'GenetDistMinusGeographyDistvsPCA', pcasca, 'tab', sep='.')), sep='\t')
+	write.table(partialmantelgeomicrobdists, file=file.path(epcaresdir, namsam, paste('partialMantel', genettag, 'GeographytDistMinusGeographyDistvsPCA', pcasca, 'tab', sep='.')), sep='\t')
+	cat(sprintf("Mantel test tables written in files: '%s'\n", file.path(epcaresdir, namsam, paste('Mantel', genettag, '*', pcasca, 'tab', sep='.'))), sep='\t')
 	
-	pdf(file.path(epcaresdir, namsam, paste('ePCA', pcasca, 'correlations', genettag, 'pdf', sep='.')), width=10, height=10)
-	for (mPC in names(allmicrobdist)){
-		p = ggplot(data = plotdf, aes(host.genetic.distances, eval(mPC))) + geom_point()
-		p + stat_smooth(method="lm", se=T)
-		
-		p = ggplot(data = plotdf, aes(factor(geographic.distances), eval(mPC)))
-		p + geom_violin(aes(fill = geographic.distances), trim = FALSE, adjust = .75)
-	}
+	hgd = as.numeric(hostgendist)
+	gd = as.factor(as.numeric(geographicdist))
+	plotdf = do.call(rbind, lapply(names(allmicrobdist), function(x){
+		md = as.numeric(allmicrobdist[[x]])
+		data.frame(microbiome.dist=md, host.genetic.dist=hgd, geographic.dist=gd, variation=as.factor(rep(x, length(md))))
+	}))
+	print(summary(plotdf))
+	pdf(file.path(epcaresdir, namsam, paste('edgePCA', pcasca, 'correlations', genettag, 'pdf', sep='.')), width=10, height=10)
+	p = ggplot(data = plotdf, aes(host.genetic.dist, microbiome.dist)) + geom_point() + stat_smooth(method="lm", se=T)
+	print(p + facet_wrap( ~ variation, nrow=4))
+#~ 	p = ggplot(data = plotdf, aes(geographic.dist, microbiome.dist)) + geom_violin(aes(fill = geographic.dist), trim = FALSE, adjust = .75)
+	p = ggplot(data = plotdf, aes(geographic.dist, microbiome.dist)) + geom_point() + stat_smooth(method="lm", se=T)
+	print(p + facet_wrap( ~ variation, nrow=4))
 	dev.off()
 
 }

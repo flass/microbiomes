@@ -25,7 +25,7 @@ export subprefix="alledges.$subprefixrestricted"
 $bins/guppy splitify -o $prefixrestricted.edgediff --epsilon 0 --kappa 1 --prefix alledges. --out-dir $resepca $resjplace/*.jplace
 
 ## prepare annotated tree in reference package
-export makrker='concat.updated'
+export marker='concat.updated'
 
 # copy Phylosift reference package of marker genes 'concat.updated' (i.e. concatenate of 33 universal genes)
 if [ -e $refpkg/$marker.annotated ] then
@@ -46,16 +46,17 @@ python $reposcripts/list_edges_inverted_by_rerooting.py $resepca
 R --no-save --no-restore < $reposcripts/edgePCA.r
 
 for pcasca in 'scaled_abundances' 'abundance-weighted' ; do
+  for dataset in `ls $resepca/*.dataset.* -d` ; do
     ## tree representation
     # represent original variable (absolute) contribution to DAPC LD axis on phyloXML tree
-    $bins/guppy heat -c $refpkg/$marker.annotated -o $resepca/$prefix.dapc.$pcasca.var.contr.4.PC.xml --min-fat 0 $resepca/$prefix.dapc.4.PC.var.contr.csv
+    $bins/guppy heat -c $refpkg/$marker.annotated -o $resepca/$dataset/$prefix.dapc.$pcasca.var.contr.4.PC.xml --min-fat 0 $resepca/$dataset/$prefix.dapc.4.PC.var.contr.csv
     # represent original variable coordinates in DAPC LD axis on phyloXML tree
-    $bins/guppy heat -c $refpkg/$marker.annotated -o $resepca/$prefix.dapc.$pcasca.var.vect.4.PC.xml --min-fat 0 $resepca/$prefix.dapc.4.PC.var.vect.csv
+    $bins/guppy heat -c $refpkg/$marker.annotated -o $resepca/$dataset/$prefix.dapc.$pcasca.var.vect.4.PC.xml --min-fat 0 $resepca/$dataset/$prefix.dapc.4.PC.var.vect.csv
 
     # represent R-computed PCA on phyloXML tree
-    $bins/guppy heat -c $refpkg/$marker.annotated -o $resepca/$prefix.ePCA.$pcasca.4.PC.xml --min-fat 0 $resepca/$prefix.ePCA.$pcasca.4.PC.csv
+    $bins/guppy heat -c $refpkg/$marker.annotated -o $resepca/$dataset/$prefix.ePCA.$pcasca.4.PC.xml --min-fat 0 $resepca/$dataset/$prefix.ePCA.$pcasca.4.PC.csv
 
     # represent R-computed PCA on phyloXML tree using in-house colors (color wheel depicting PC-pair planes)
-    export pcasca=$pcasca
-	python $reposcripts/colour_reftree_as_PC_plane.py $respca $pcasca
+	python $reposcripts/colour_reftree_as_PC_plane.py $respca $pcasca/$dataset
+  done
 done
