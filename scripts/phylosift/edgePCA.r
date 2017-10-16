@@ -21,7 +21,7 @@ cargs = commandArgs(trailingOnly=T)
 if (length(cargs)>0){
 	metaghomedir = cargs[1]
 }else{
-	metaghomedir = file.path(getwd(), 'oral_metagenomes')
+	metaghomedir = '~/oral_metagenomes'
 }
 stopifnot((file.exists(metaghomedir) && file.info(metaghomedir)$isdir))
 
@@ -144,7 +144,7 @@ cat(sprintf("sample set: %s\n", namsam))
 sampleset = samplesets[[namsam]]
 dir.create(file.path(epcaresdir, namsam), showWarnings=F)
 print(individuals[sampleset])
-write(individuals[sampleset], file=file.path(epcaresdir, namsam, "sample.list"))
+write(as.character(individuals[sampleset]), ncol=1, file=file.path(epcaresdir, namsam, "sample.list"))
 
 K = length(which(sampleset)) - 1
 #~ npca = K

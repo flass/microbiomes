@@ -39,7 +39,7 @@ cargs = commandArgs(trailingOnly=T)
 if (length(cargs)>0){
 	topoutdir = cargs[1]
 }else{
-	topoutdir = file.path('~/oral_metagenomes/STEP_03_Kraken_results')
+	topoutdir = file.path('~/oral_metagenomes/STEP_03_Kraken_results/LDA_16-10-17')
 }
 stopifnot((file.exists(topoutdir) && file.info(topoutdir)$isdir))
 
@@ -47,15 +47,19 @@ stopifnot((file.exists(topoutdir) && file.info(topoutdir)$isdir))
 if (length(cargs)>1){
 	krakenresdirs = cargs[2:length(cargs)]
 }else{
-	krakenresdirs = paste('~/oral_metagenomes/STEP_03_Kraken_results/kraken_classification/microbial_db', c('reads_human_removed_duskmask_4', 'HMP_reads_duskmsk_4'), sep='/')
+#~ 	krakenresdirs = paste('~/oral_metagenomes/STEP_03_Kraken_results/kraken_classification/microbial_db', c('reads_human_removed_duskmask_4', 'HMP_reads_duskmsk_4'), sep='/')
+	krakenresdirs = '~/oral_metagenomes/STEP_03_Kraken_results/kraken_classification/vs_krakendb_30-09-17'
 }
 for (krakenresdir in krakenresdirs){
-	stopifnot((file.exists(krakenresdir) && file.info(krakenresdir)$isdir && length(list.files(krakenresdir))>0)
+	stopifnot(file.exists(krakenresdir) && file.info(krakenresdir)$isdir && length(list.files(krakenresdir))>0)
 }
 
 # load shared params and functions
+repohome = Sys.getenv('repohome')
+# if not specified, assume script is run from the repository top folder
+if ( repohome == "" ){ repohome = getwd() }
 # assumes the script is executed at the root of the repository
-source('scripts/shared_params.r', local=TRUE)
+source(file.path(repohome, 'scripts/shared_params.r'))
 
 nbcores = 4
 
@@ -73,7 +77,7 @@ taxlevels = c('G', 'S')
 taxonomiclevels = c('Genus', 'Species') ; names(taxonomiclevels) = taxlevels
 refranks = c('genera', 'species') ; names(refranks) = taxlevels
 
-filtertags = c('filtered.020', 'unfiltered')
+filtertags = c('filtered_020', 'unfiltered')
 outdirs = paste(topoutdir, c('LDA_confidence-filtered', 'LDA_sensitive'), sep='/') ; names(outdirs) = filtertags
 
 readsets = list(c('root', 'unclassified'), c('root'), c('Bacteria', 'Archaea'))
@@ -85,6 +89,7 @@ for (filtertag in filtertags){
 	if (!file.exists(outdir)){
 		dir.create(outdir)
 	}
+	print(outdir)
 
 	nfcleankrakenabunmat = paste(outdir, 'kraken_cumulative_readcounts_non-normalized_cleaned-taxa.RData', sep='/')
 	if (file.exists(nfcleankrakenabunmat)){
@@ -98,22 +103,19 @@ for (filtertag in filtertags){
 			krakenabun = read.table(nfkrakenabuntab, sep='\t', head=T, row.names=1)
 	#~ 		krakenabun = read.table(nfkrakenabuntab, sep='\t', head=T)
 		}else{
-			# kraken results from the 29/08/2014 :
 			lnfkrakenpath = do.call(c, lapply(krakenresdirs, function(p){ 
 				q = list.files(p)
+				# kraken results from the 29/08/2014 :
 				if (p=='HMP_reads_duskmsk_4'){ q = q[substr(q, 1, 3) %in% c('SRS', 'VFD')] }
 				return(paste(p, q, sep='/')) 
 			}))
 			lnfkrakenres = basename(lnfkrakenpath)
-			#~ lnfkrakenrad = t(sapply(lnfkrakenres, function(x){ y = strsplit(x, split='\\.')[[1]] ; return(c(y[1], paste(y[1:(length(y)-1)], collapse='.'), y[length(y)])) }))
-			lnfkrakenrad = t(sapply(lnfkrakenpath, function(p){ x = basename(p) ; y = strsplit(x, split='\\.')[[1]] ; return(c(y[1], paste(y[2:(length(y)-1)], collapse='.'), y[length(y)])) }))
-			colnames(lnfkrakenrad) = c('sample', 'file.rad', 'file.ext')
-			tabfs = which(lnfkrakenrad[,'file.rad']==paste('kraken', filtertag, 'summary', sep='.') & lnfkrakenrad[,'file.ext']=='tab')
+			tabfs = grep(paste(filtertag, "summary", "tab", collapse='.', sep='.'), lnfkrakenres, fixed=T)
+			print(tabfs)
 			lkrakenrestab = mclapply(tabfs, function(tabf){
 				nfkrakentab = lnfkrakenres[tabf]
 				print(nfkrakentab)
-			#~ 	ktab = read.table(paste(krakenresdir, nfkrakentab, sep='/'), sep='\t', quote='')
-				ktab = read.table(rownames(lnfkrakenrad)[tabf], sep='\t', quote='')
+				ktab = read.table(lnfkrakenpath[tabf], sep='\t', quote='')
 				colnames(ktab) = c('abundance', 'cummulative.nb.reads', 'node.specific.nb.reads', 'rank', 'taxid', 'name')
 				return(ktab[order(ktab$taxid),])
 			}, mc.cores=nbcores, mc.preschedule=T)
@@ -148,22 +150,14 @@ for (filtertag in filtertags){
 		# remove taxa with no match in any sample
 		presenttax = apply(krakenabun, 1, sum)>0
 		# remove abundance counts from human contamination
-		humanlineage = lkrakenrestab[[1]]$taxid %in% read.table('human_lineage_taxid.tab', sep='\t', header=T)$taxid
+		humanlineage = lkrakenrestab[[1]]$taxid %in% read.table(file.path(repohome, 'data/human_lineage_taxid.tab'), sep='\t', header=T)$taxid
 		
 		samplespecifictaxa = lapply(colnames(krakenabun), function(i){ krakenabun[,i]>0 & rowSums(krakenabun[,colnames(krakenabun)!=i])==0 }) #, mc.cores=nbcores, mc.preschedule=T)
 		names(samplespecifictaxa) = colnames(krakenabun)
 		print(sapply(samplespecifictaxa, function(x){length(which(x))}))
 		
-		# deal with (apparently) soil-contaminated sample
-	#~ 	contaminant = krakenabun[,contamsample]>0 & rowSums(krakenabun[,colnames(krakenabun)!=contamsample])==0
-#~ 		contaminant = samplespecifictaxa[[contamsample]]
-		# has many RHizobiales and pathogenic Enterobacteriaceae (Eschecrichia, Salmonella, Yersinia)
-		# try keeping it for the moment
-		#~ 
 		cleankrakenabun = krakenabun[presenttax & !humanlineage, ]
 		ranks = lkrakenrestab[[1]]$rank[presenttax & !humanlineage]
-	#~ 	cleankrakenabun = krakenabun[presenttax & !contaminant & !humanlineage, ]
-	#~ 	ranks = lkrakenrestab[[1]]$rank[presenttax & !contaminant & !humanlineage]
 		save(cleankrakenabun, ranks, file=nfcleankrakenabunmat)
 		# clean up memory space
 		rm(lkrakenrestab, krakenabun)
@@ -199,7 +193,7 @@ for (filtertag in filtertags){
 		df.logabun = do.call(rbind, lapply(individuals, function(samp){ data.frame(Depth=depths[samp, depthset], Sample=samp, Locality=as.character(criteria$localities[samp]), log.abun=logabun[[samp]]) }) )
 		#~ print(anova(lm(log.abun ~ Depth * Sample * Locality, data=df.logabun)))
 		print(anova(lm(log.abun ~ Depth, data=df.logabun)))
-		for (thinthresh in -10:-5){
+		for (thinthresh in -15:-5){
 			print(sprintf("thinning threshold: 1e%d", thinthresh))
 			print(sprintf("remain %d %s", length(which(df.logabun$log.abun > thinthresh)), refranks[refrank]))
 			aovthin = anova(lm(log.abun ~ Depth, data=df.logabun[df.logabun$log.abun > thinthresh,]))
@@ -245,7 +239,7 @@ for (filtertag in filtertags){
 
 		n=1
 		for (samp in individuals){
-			if (n==1) plot(density(logabunthin[[samp]]), xlim=c(-9,0), ylim=c(0, 0.3), col=couldepth[couldepvec[n]], lwd=2, xlab=sprintf('log(%s abundances)', refranks[refrank]))
+			if (n==1) plot(density(logabunthin[[samp]]), xlim=c(thinthresh-1,0), ylim=c(0, 0.3), col=couldepth[couldepvec[n]], lwd=2, xlab=sprintf('log(%s abundances)', refranks[refrank]))
 			else lines(density(logabunthin[[samp]]), col=couldepth[couldepvec[n]], lwd=2)
 			n = n + 1
 		}
@@ -259,12 +253,6 @@ for (filtertag in filtertags){
 
 
 		# PCA on Kraken aundances
-		#~ shitty = "run1_Cae45"
-		#~ cleans = which(colnames(normcleankrakenabun)!=shitty)
-		#~ normcleankrakenabunnoshitty = normcleankrakenabun[,cleans]
-		#~ noshit.taxa = rownames(normcleankrakenabun)[apply(normcleankrakenabunnoshitty, 1, sum)>1] 
-		#~ normcleankrakenabunnoshit = normcleankrakenabun[noshit.taxa,]
-		#~ pca.abun = dudi.pca(t(normcleankrakenabunnoshit), scannf=F, nf=8)
 		thinednormcleankrakenabun = normcleankrakenabun[apply(normcleankrakenabun, 1, function(x){ all(x > 10^thinthresh) }),]
 		
 		
@@ -293,25 +281,19 @@ for (filtertag in filtertags){
 
 				## NOT a DAPC: discrimin uses a PCA just to recycle the underlying dudi object 
 				## hence scaling or not loads in PCA is irrelevant... to the LDA, but not to the PCA on which it is plotted
-				#~ disc.abun = lda(t(crprthinednormcleankrakenabun[nocons,]), grouping=faccrpr, tol=1.0e-8)
 				disc.abun = discrimin(dudi.pca(t(crprthinednormcleankrakenabun[nocons,]), scannf=F, nf=length(which(nocons))), fac=faccrpr, scannf=F, nf=1)
 				topdiscvar = disc.abun$va[order(abs(disc.abun$va), decreasing=T),]
-	#~ 			disc.abun = discrimin(pca.abun, fac=criterion, scannf=F, nf=2)
-	#~ 			topdiscvar = disc.abun$va[order(abs(disc.abun$va[,1]), decreasing=T),]
 				topdiscspe20 = names(topdiscvar)[1:20]
 				topdiscspe50 = names(topdiscvar)[1:50]
 				
 				# perform alll independent t-tests on species abundances
+#~ 				testfun = 't.test'
+				testfun = 'wilcox.test'
 				ttestpvals = apply(crprthinednormcleankrakenabun[nocons,], 1, function(speabun){
-	#~ 				tt = t.test(speabun ~ criterion[crpr])
-					tt = wilcox.test(speabun ~ criterion[crpr])
+					tt = get(testfun)(speabun ~ criterion[crpr])
 					return(tt$p.value)
 				})
 				ranked.ttestpvals = ttestpvals[order(ttestpvals)]
-				
-				# ANCOM test (Mandal S et al. (2015). Analysis of composition of microbiomes: a novel method for studying microbial composition. Microbial Ecology in Health and Disease, 26, 1-7.)
-				ancom.result = ANCOM(as.data.frame(t(rbind(crprthinednormcleankrakenabun[nocons,], criterion[crpr]))), multcorr=2)
-				write(ancom.result$detected, file=sprintf('%s/ANCOM_signif_%s_diff_relabun_%svs%s_truncdata.txt', outdir, refranks[refrank], levels(faccrpr)[1], levels(faccrpr)[2]))
 				
 				# Benjamini–Hochberg procedure
 				signifthresh = 0.05
@@ -320,9 +302,14 @@ for (filtertag in filtertags){
 				topsignif = which(BHcor.ttestpvvals <= signifthresh)
 				topsignifdiscspe = names(topsignif)
 				topsignifdisc = order(ttestpvals)[topsignif]
+				write(topsignifdisc, file=sprintf('%s/FDR-cor-%s_signif_%s_diff_relabun_%svs%s_truncdata.txt', outdir, sub('.', '-', testfun, fixed=T), refranks[refrank], levels(faccrpr)[1], levels(faccrpr)[2]))
+				
+				# ANCOM test (Mandal S et al. (2015). Analysis of composition of microbiomes: a novel method for studying microbial composition. Microbial Ecology in Health and Disease, 26, 1-7.)
+				ancom.result = ANCOM(as.data.frame(t(rbind(crprthinednormcleankrakenabun[nocons,], criterion[crpr]))), multcorr=2)
+				write(ancom.result$detected, file=sprintf('%s/ANCOM_signif_%s_diff_relabun_%svs%s_truncdata.txt', outdir, refranks[refrank], levels(faccrpr)[1], levels(faccrpr)[2]))
 				
 	#~ 			if (crit == 'lifestyles'){
-					pdf(sprintf('%s/top_dirscrim_%s_diffabun_%svs%s_truncdata.pdf', outdir, refranks[refrank], levels(faccrpr)[1], levels(faccrpr)[2]), height=10, width=15)
+					pdf(sprintf('%s/top_discrimin_%s_diffabun_%svs%s_truncdata.pdf', outdir, refranks[refrank], levels(faccrpr)[1], levels(faccrpr)[2]), height=10, width=15)
 					nr = 5
 					layout(matrix(1:(5*nr), nr, 5, byrow=T))
 					critorder = sapply(levels(criteria[[crit]]), function(x){ which(ordered.crits[[crit]]==x) })
@@ -346,7 +333,7 @@ for (filtertag in filtertags){
 							sapply(levels(criterion), function(c){ log10(mean(speabun[criterion==c])) })
 						})
 					
-						pdf(sprintf('%s/top_signif_%s_diffabun_%svs%s_truncdata.pdf', outdir, refranks[refrank], levels(faccrpr)[1], levels(faccrpr)[2]), height=10, width=8)
+						pdf(sprintf('%s/FDR-cor-%s_signif_%s_diffabun_%svs%s_truncdata.pdf', outdir, sub('.', '-', testfun, fixed=T), refranks[refrank], levels(faccrpr)[1], levels(faccrpr)[2]), height=10, width=8)
 						par(mar=c(4, 10, 4, 4))
 						barplot(6+crit.ave.log.abuns[levels(criterion),], beside=T, horiz=T, las=2, col=lcoul[[crit]], axes=F)
 						axis(side=1, at=0:5, labels=(0:5)-6)
@@ -362,13 +349,13 @@ for (filtertag in filtertags){
 				# PCA with max discriminant taxa:
 				
 				#~ pdf(sprintf('%s/PCA_kraken_with_top_dirscrim_%s_diffabun_%svs%s.pdf', outdir, refranks[refrank], levels(faccrpr)[1], levels(faccrpr)[2]), height=20, width=20)
-				pdf(sprintf('%s/PCA_kraken_with_top_dirscrim_%s_diffabun_%svs%s_truncdata.pdf', outdir, refranks[refrank], levels(faccrpr)[1], levels(faccrpr)[2]), height=20, width=20)
+				pdf(sprintf('%s/PCA_kraken_with_top_discrimin_%s_diffabun_%svs%s_truncdata.pdf', outdir, refranks[refrank], levels(faccrpr)[1], levels(faccrpr)[2]), height=20, width=20)
 				#~ layout(matrix(1:4, 2, 2, byrow=T))
 				s.class(pca.abun$li, fac=criteria[[crit]], col=lcoul[[crit]])
 				plotPCAabun(pca.abun, criteria[[crit]], lcoul[[crit]], subsample=NULL, np=2, topdisc=topdiscspe50, scalingvarvect=scalingvarvect)
 				dev.off()
 				#~ write.table(pca.abun$c1[topdiscspe50,], file=sprintf('%s/top_dirscrim_%s_diffabun_%svs%s.txt', outdir, refranks[refrank], levels(faccrpr)[1], levels(faccrpr)[2]))
-				write.table(pca.abun$c1[topdiscspe50,], file=sprintf('%s/top_dirscrim_%s_diffabun_%svs%s_truncdata.txt', outdir, refranks[refrank], levels(faccrpr)[1], levels(faccrpr)[2]))
+				write.table(pca.abun$c1[topdiscspe50,], file=sprintf('%s/top_discrimin_%s_diffabun_%svs%s_truncdata.txt', outdir, refranks[refrank], levels(faccrpr)[1], levels(faccrpr)[2]))
 			}
 		}
 	}

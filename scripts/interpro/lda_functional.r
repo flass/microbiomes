@@ -6,9 +6,11 @@ library('ggplot2')
 library('parallel')
 library('ancom.R')
 
-# load shared params and functions
-# assumes the script is executed at the root of the repository
-source('scripts/shared_params.r', local=TRUE)
+
+repohome = Sys.getenv('repohome')
+# if not specified, assume script is run from the repository top folder
+if ( repohome == "" ){ repohome = getwd() }
+source(file.path(repohome, 'scripts/shared_params.r'))
 
 nbcores = 4
 
@@ -44,14 +46,15 @@ attach(criteria)
 strategy = ordered(lifeshort[lifestyles])
 names(strategy) = individuals
 
-pdf(sub('.tsv', '_counts_per_strategy.pdf', nffuncmat, fixed=T), height=12, width=20)
+pdf(sub('.tsv', '_counts_per_strategy.pdf', nffuncmat, fixed=T), height=6, width=12)
 layout(matrix(1:2, 1, 2))
 
 # do a PCA to make dudi object
 func.pca = dudi.pca(relfuncmat, scannf=F, nf=ncol(relfuncmat), scale=F)
-func.pca.percenteig = func.pca$eig/sum(func.pca$eig)
-for (pcs in list(1:2, 3:4)){
-  s.class(func.pca$li, fac=strategy, xax=pcs[1], yax=pcs[2], col=coullif, sub=paste(paste('PC', pcs, ':', func.pca.percenteig[pcs]), collapse='; '))
+func.pca.percenteig = round(100*func.pca$eig/sum(func.pca$eig), digit=1)
+for (pcs in list(1:2, 3:4, 5:6)){
+  s.class(func.pca$li, fac=strategy, xax=pcs[1], yax=pcs[2], col=coullif, axesell=F, grid=F, sub=paste(paste('PC', pcs, ':', func.pca.percenteig[pcs]), collapse='; '))
+  s.class(func.pca$li, fac=populations, xax=pcs[1], yax=pcs[2], col=coulpop, axesell=F, grid=F, sub=paste(paste('PC', pcs, ':', func.pca.percenteig[pcs]), collapse='; '))
 }
 
 
@@ -67,16 +70,18 @@ for (i in 1:ncol(S)){
 	print(stratpair)
 	stratpair.i = which(strategy %in% stratpair)
 	strat = droplevels(strategy[stratpair.i])
+	stpop = droplevels(populations[stratpair.i])
 	pair.relfuncmat = data.matrix(relfuncmat[stratpair.i,])
 	# find non constant variables
 	nocons = which(simplify2array(mclapply(1:ncol(pair.relfuncmat), function(j){ var(pair.relfuncmat[,j]) > 0 }, mc.cores=nbcores, mc.preschedule=T)))
-#~ 	print(dim(pair.relfuncmat))
+#~ 	print(head(t(pair.relfuncmat)))
 	# do a PCA to make dudi object
 	pair.func.pca = dudi.pca(pair.relfuncmat[,nocons], scannf=F, nf=nrow(pair.relfuncmat))
-	pair.func.pca.percenteig = pair.func.pca$eig/sum(pair.func.pca$eig)
-	for (pcs in list(1:2, 3:4)){
+	pair.func.pca.percenteig = round(100*pair.func.pca$eig/sum(pair.func.pca$eig), digit=1)
+	for (pcs in list(1:2, 3:4, 5:6)){
 	  print(pcs)
-	  s.class(pair.func.pca$li, fac=strat, xax=pcs[1], yax=pcs[2], col=coullif[s], sub=paste(paste('PC', pcs, ':', func.pca.percenteig[pcs]), collapse='; '))
+	  s.class(pair.func.pca$li, fac=strat, xax=pcs[1], yax=pcs[2], col=coullif[levels(strat)], axesell=F, grid=F, sub=paste(paste('PC', pcs, ':', func.pca.percenteig[pcs]), collapse='; '))
+	  s.class(pair.func.pca$li, fac=stpop, xax=pcs[1], yax=pcs[2], col=coulpop[levels(stpop)], axesell=F, grid=F, sub=paste(paste('PC', pcs, ':', func.pca.percenteig[pcs]), collapse='; '))
 	}
 	disc.func = discrimin(pair.func.pca, strat, scannf=F, nf=1)
 	topdiscvar = disc.func$va[order(abs(disc.func$va)[,1], decreasing=T),1]
@@ -87,6 +92,7 @@ for (i in 1:ncol(S)){
 		tt = t.test(pair.relfuncmat[,j] ~ strat)
 		return(tt$p.value)
 	}, mc.cores=nbcores, mc.preschedule=T))
+	names(ttestpvals) = colnames(relfuncmat)[nocons]
 	ranked.ttestpvals = ttestpvals[order(ttestpvals)]
 	cat('ranked.ttestpvals:', head(ranked.ttestpvals), '...\n')
 	
