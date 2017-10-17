@@ -260,7 +260,7 @@ for (filtertag in filtertags){
 		#~ pca.abun = dudi.pca(t(normcleankrakenabun), scannf=F, nf=8)
 		pca.abun = dudi.pca(t(thinednormcleankrakenabun), scannf=F, nf=8)
 	#~ 	pca.abun = dudi.pca(t(thinednormcleankrakenabun), scannf=F, nf=8, scale=FALSE)
-		print(c("PCA Eigen values:", pca.abun$eig/sum(pca.abun$eig)))
+		print(c("PCA Eigen values:", (pca.abun$eig/sum(pca.abun$eig))[1:4]))
 
 		####################################
 		# using Linear Discriminant Analysis
@@ -270,7 +270,7 @@ for (filtertag in filtertags){
 		critpairs = list(list(c('HG', 'TF'), c('HG', 'WC'))) ; names(critpairs) = c('lifestyles')
 		for (crit in names(critpairs)){
 			for (critpair in critpairs[[crit]]){
-				print(critpair)
+				print(paste0(critpair, collapse=" vs. "))
 				criterion = criteria[[crit]]
 				crpr = criterion %in% critpair
 				faccrpr = as.factor(as.character(criterion[crpr]))
@@ -286,75 +286,75 @@ for (filtertag in filtertags){
 				topdiscspe20 = names(topdiscvar)[1:20]
 				topdiscspe50 = names(topdiscvar)[1:50]
 				
-				# perform alll independent t-tests on species abundances
-#~ 				testfun = 't.test'
-				testfun = 'wilcox.test'
-				ttestpvals = apply(crprthinednormcleankrakenabun[nocons,], 1, function(speabun){
-					tt = get(testfun)(speabun ~ criterion[crpr])
-					return(tt$p.value)
-				})
-				ranked.ttestpvals = ttestpvals[order(ttestpvals)]
-				
-				# Benjamini–Hochberg procedure
-				signifthresh = 0.05
-				m = length(ranked.ttestpvals)
-				BHcor.ttestpvvals = sapply(1:m, function(k){ ranked.ttestpvals[k] * m / k })
-				topsignif = which(BHcor.ttestpvvals <= signifthresh)
-				topsignifdiscspe = names(topsignif)
-				topsignifdisc = order(ttestpvals)[topsignif]
-				write(topsignifdisc, file=sprintf('%s/FDR-cor-%s_signif_%s_diff_relabun_%svs%s_truncdata.txt', outdir, sub('.', '-', testfun, fixed=T), refranks[refrank], levels(faccrpr)[1], levels(faccrpr)[2]))
-				
 				# ANCOM test (Mandal S et al. (2015). Analysis of composition of microbiomes: a novel method for studying microbial composition. Microbial Ecology in Health and Disease, 26, 1-7.)
+				print("ANCOM test")
 				ancom.result = ANCOM(as.data.frame(t(rbind(crprthinednormcleankrakenabun[nocons,], criterion[crpr]))), multcorr=2)
 				write(ancom.result$detected, file=sprintf('%s/ANCOM_signif_%s_diff_relabun_%svs%s_truncdata.txt', outdir, refranks[refrank], levels(faccrpr)[1], levels(faccrpr)[2]))
+				ANCOMsignifspe = setdiff(ancom.result$detected, "No significant OTUs detected")
 				
-	#~ 			if (crit == 'lifestyles'){
-					pdf(sprintf('%s/top_discrimin_%s_diffabun_%svs%s_truncdata.pdf', outdir, refranks[refrank], levels(faccrpr)[1], levels(faccrpr)[2]), height=10, width=15)
-					nr = 5
-					layout(matrix(1:(5*nr), nr, 5, byrow=T))
-					critorder = sapply(levels(criteria[[crit]]), function(x){ which(ordered.crits[[crit]]==x) })
-					print(crit)
-		#~ 			topsignifdiscspe = names(signifdiscvar80)[order(abs(signifdiscvar80), decreasing=T)][1:20]
-					for (spe in topdiscspe50){
-	#~ 				for (spe in topsignifdiscspe){
-						Spe = gsub('([^s][^p])\\.', '\\1 ', spe)
-						if (Spe %in% rownames(thinednormcleankrakenabun)){
-	#~ 						print(Spe)
-							signifmark = ifelse(Spe %in% topsignifdiscspe, '*', '')	
-							boxplot(thinednormcleankrakenabun[Spe, ] ~ criteria[[crit]], horizontal=T, col=lcoul[[crit]][levels(criteria[[crit]])], las=2,
-							 main=sprintf("%s\nLD loading: %.3g %s", Spe, disc.abun$va[spe,], as.character(signifmark)), at=critorder)
-						}
+				meantests = c('t.test', 'wilcox.test')
+				lFDRsignifdiscspe = lapply(meantests, function(testfun){
+					print(testfun)
+					# perform alll independent t-tests on species abundances
+					ttestpvals = apply(crprthinednormcleankrakenabun[nocons,], 1, function(speabun){
+						tt = get(testfun)(speabun ~ criterion[crpr])
+						return(tt$p.value)
+					})
+					ranked.ttestpvals = ttestpvals[order(ttestpvals)]
+					print("FDR")
+					# Benjamini–Hochberg procedure
+					signifthresh = 0.05
+					m = length(ranked.ttestpvals)
+					BHcor.ttestpvvals = sapply(1:m, function(k){ ranked.ttestpvals[k] * m / k })
+					print(BHcor.ttestpvvals[c('Campylobacter concisus', 'Streptococcus mitis')])
+					FDRsignif = which(BHcor.ttestpvvals <= signifthresh)
+					FDRsignifdiscspe = names(FDRsignif)
+#~ 					FDRsignifdisc = order(ttestpvals)[FDRsignif]
+					write(FDRsignifdiscspe, file=sprintf('%s/FDR-cor-%s_signif_%s_diff_relabun_%svs%s_truncdata.txt',
+					 outdir, sub('.', '-', testfun, fixed=T), refranks[refrank], levels(faccrpr)[1], levels(faccrpr)[2]))
+					return(FDRsignifdiscspe)
+				}) ; names(lFDRsignifdiscspe) = meantests
+				pdf(sprintf('%s/top_discrimin_%s_diffabun_%svs%s_truncdata.pdf', outdir, refranks[refrank], levels(faccrpr)[1], levels(faccrpr)[2]), height=10, width=15)
+				nr = 5
+				layout(matrix(1:(5*nr), nr, 5, byrow=T))
+				critorder = sapply(levels(criteria[[crit]]), function(x){ which(ordered.crits[[crit]]==x) })
+				print(crit)
+				for (spe in topdiscspe50){
+					Spe = gsub('([^s][^p])\\.', '\\1 ', spe)
+					if (Spe %in% rownames(thinednormcleankrakenabun)){
+						ANCOMsignifmark = ifelse(Spe %in% ANCOMsignifspe, '#', '')
+						tFDRsignifmark = ifelse(Spe %in% lFDRsignifdiscspe[['t.test']], '$', '')	
+						wFDRsignifmark = ifelse(Spe %in% lFDRsignifdiscspe[['wilcox.test']], '*', '')	
+						signifmark = paste0(ANCOMsignifmark, tFDRsignifmark, wFDRsignifmark)
+						boxplot(thinednormcleankrakenabun[Spe, ] ~ criteria[[crit]], horizontal=T, col=lcoul[[crit]][levels(criteria[[crit]])], las=2,
+						 main=sprintf("%s\nLD loading: %.3g %s", Spe, disc.abun$va[spe,], as.character(signifmark)), at=critorder)
 					}
+				}
+				dev.off()
+				signifdiscspe = union(ANCOMsignifspe, unlist(lFDRsignifdiscspe))
+				if (length(signifdiscspe) > 1){
+					DAorderedtncnkrakenabun = thinednormcleankrakenabun[order(disc.abun$va, decreasing=T), ]
+					crit.ave.log.abuns = apply(DAorderedtncnkrakenabun[rownames(DAorderedtncnkrakenabun) %in% signifdiscspe, ], 1, function(speabun){
+						sapply(levels(criterion), function(c){ log10(mean(speabun[criterion==c])) })
+					})
+				
+					pdf(sprintf('%s/signif_%s_diffabun_%svs%s_truncdata.pdf', outdir, refranks[refrank], levels(faccrpr)[1], levels(faccrpr)[2]), height=10, width=8)
+					par(mar=c(4, 10, 4, 4))
+					barplot(6+crit.ave.log.abuns[levels(criterion),], beside=T, horiz=T, las=2, col=lcoul[[crit]], axes=F)
+					axis(side=1, at=0:5, labels=(0:5)-6)
+					axis(side=3, at=0:5, labels=(0:5)-6)
+					mtext(side=1, sprintf("log10(%s abundances)", refranks[refrank]), line=3)
+					legend('topright', leg=levels(criterion), fill=lcoul[[crit]])
 					dev.off()
-					
-					if (length(topsignifdiscspe) > 1){
-						DAorderedtncnkrakenabun = thinednormcleankrakenabun[order(disc.abun$va, decreasing=T), ]
-						crit.ave.log.abuns = apply(DAorderedtncnkrakenabun[rownames(DAorderedtncnkrakenabun) %in% topsignifdiscspe, ], 1, function(speabun){
-							sapply(levels(criterion), function(c){ log10(mean(speabun[criterion==c])) })
-						})
-					
-						pdf(sprintf('%s/FDR-cor-%s_signif_%s_diffabun_%svs%s_truncdata.pdf', outdir, sub('.', '-', testfun, fixed=T), refranks[refrank], levels(faccrpr)[1], levels(faccrpr)[2]), height=10, width=8)
-						par(mar=c(4, 10, 4, 4))
-						barplot(6+crit.ave.log.abuns[levels(criterion),], beside=T, horiz=T, las=2, col=lcoul[[crit]], axes=F)
-						axis(side=1, at=0:5, labels=(0:5)-6)
-						axis(side=3, at=0:5, labels=(0:5)-6)
-						mtext(side=1, sprintf("log10(%s abundances)", refranks[refrank]), line=3)
-						legend('topright', leg=levels(criterion), fill=lcoul[[crit]])
-						dev.off()
-					}
-	#~ 			}
+				}
 
 				
 				##################################
-				# PCA with max discriminant taxa:
-				
-				#~ pdf(sprintf('%s/PCA_kraken_with_top_dirscrim_%s_diffabun_%svs%s.pdf', outdir, refranks[refrank], levels(faccrpr)[1], levels(faccrpr)[2]), height=20, width=20)
+				# PCA with max discriminant taxa ploted over:
 				pdf(sprintf('%s/PCA_kraken_with_top_discrimin_%s_diffabun_%svs%s_truncdata.pdf', outdir, refranks[refrank], levels(faccrpr)[1], levels(faccrpr)[2]), height=20, width=20)
-				#~ layout(matrix(1:4, 2, 2, byrow=T))
 				s.class(pca.abun$li, fac=criteria[[crit]], col=lcoul[[crit]])
 				plotPCAabun(pca.abun, criteria[[crit]], lcoul[[crit]], subsample=NULL, np=2, topdisc=topdiscspe50, scalingvarvect=scalingvarvect)
 				dev.off()
-				#~ write.table(pca.abun$c1[topdiscspe50,], file=sprintf('%s/top_dirscrim_%s_diffabun_%svs%s.txt', outdir, refranks[refrank], levels(faccrpr)[1], levels(faccrpr)[2]))
 				write.table(pca.abun$c1[topdiscspe50,], file=sprintf('%s/top_discrimin_%s_diffabun_%svs%s_truncdata.txt', outdir, refranks[refrank], levels(faccrpr)[1], levels(faccrpr)[2]))
 			}
 		}
