@@ -1,0 +1,34 @@
+#SampleID	LefseSampleID	BarcodeSequence	LinkerPrimerSequence	SampleType	Population	Lifestyle	Locality	Description
+AE08	1			saliva	Aeta	Hunter-gatherer	Luzon_Mount	salivary_samples_from_the_Philippines
+AE10	2			saliva	Aeta	Hunter-gatherer	Luzon_Mount	salivary_samples_from_the_Philippines
+AE12	3			saliva	Aeta	Hunter-gatherer	Luzon_Mount	salivary_samples_from_the_Philippines
+AE61	4			saliva	Aeta	Hunter-gatherer	Luzon_Mount	salivary_samples_from_the_Philippines
+AG09	5			saliva	Agta	Hunter-gatherer	Luzon_Coast	salivary_samples_from_the_Philippines
+AG27	6			saliva	Agta	Hunter-gatherer	Luzon_Coast	salivary_samples_from_the_Philippines
+AG44	7			saliva	Agta	Hunter-gatherer	Luzon_Coast	salivary_samples_from_the_Philippines
+AG57	8			saliva	Agta	Hunter-gatherer	Luzon_Coast	salivary_samples_from_the_Philippines
+B29	9			saliva	Tagbanua	Traditional farmer	Palawan_Mount	salivary_samples_from_the_Philippines
+B33	10			saliva	Tagbanua	Traditional farmer	Palawan_Mount	salivary_samples_from_the_Philippines
+B35	11			saliva	Batak	Hunter-gatherer	Palawan_Mount	salivary_samples_from_the_Philippines
+B42	12			saliva	Batak	Hunter-gatherer	Palawan_Mount	salivary_samples_from_the_Philippines
+B62	13			saliva	Batak	Hunter-gatherer	Palawan_Mount	salivary_samples_from_the_Philippines
+B64	14			saliva	Tagbanua	Traditional farmer	Palawan_Mount	salivary_samples_from_the_Philippines
+B73	15			saliva	Tagbanua	Traditional farmer	Palawan_Mount	salivary_samples_from_the_Philippines
+B99	16			saliva	Batak	Hunter-gatherer	Palawan_Mount	salivary_samples_from_the_Philippines
+Cae01	17			saliva	Zambal	Traditional farmer	Luzon_Mount	salivary_samples_from_the_Philippines
+Cae06	18			saliva	Zambal	Traditional farmer	Luzon_Mount	salivary_samples_from_the_Philippines
+Cae42	19			saliva	Zambal	Traditional farmer	Luzon_Mount	salivary_samples_from_the_Philippines
+Cae45	20			saliva	Zambal	Traditional farmer	Luzon_Mount	salivary_samples_from_the_Philippines
+Cag05	21			saliva	Casigurani	Traditional farmer	Luzon_Coast	salivary_samples_from_the_Philippines
+Cag09	22			saliva	Casigurani	Traditional farmer	Luzon_Coast	salivary_samples_from_the_Philippines
+Cag32	23			saliva	Casigurani	Traditional farmer	Luzon_Coast	salivary_samples_from_the_Philippines
+Cag34	24			saliva	Casigurani	Traditional farmer	Luzon_Coast	salivary_samples_from_the_Philippines
+SRS013942	25			saliva	American	Western control	USA	HMP_phase1_saliva_sample
+SRS014468	26			saliva	American	Western control	USA	HMP_phase1_saliva_sample
+SRS014692	27			saliva	American	Western control	USA	HMP_phase1_saliva_sample
+SRS015055	28			saliva	American	Western control	USA	HMP_phase1_saliva_sample
+SRS019120	29			saliva	American	Western control	USA	HMP_phase1_saliva_sample
+SRS104275	30			saliva	American	Western control	USA	HMP_phase1_saliva_sample
+SRS147126	31			saliva	American	Western control	USA	HMP_phase1_saliva_sample
+VFD10	32			saliva	American	Western control	USA	Hasan2014_sample
+VFD12	33			saliva	American	Western control	USA	Hasan2014_sample
