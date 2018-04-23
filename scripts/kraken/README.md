@@ -17,30 +17,43 @@ export PYTHONPATH=/my/chosen/folder/microbiomes/scripts/kraken:${PYTHONPATH}
 # Example of usage  
 
 ```sh
-# basic query of reads from sample "sample1" belonging to the genus Klebsiella.
-# This searches all reads that were assigned to the taxon Klebsiella,
-# or to taxa included in it, for instance the species Klebsiella pneumoniae,
-# and extracts the reads form the FASTQ files matching the 'allmy-fastq/sample1*' pattern (using glob matching)
-python parseKronaGetReadsByTaxid.py krona.html=sample1.krona.html --dir.krona.html.files=sample1.krona.html.files \
---dir.fastq=allmy-fastq/sample1* --dir.output=filtered_Klebsiella_reads \
- --fetch.taxa="Klebsiella pneumoniae"
+# basic query of reads from sample "sample1" assigned exactly to the genus Klebsiella,
+# and extracts the reads form the FASTQ files matching the 'allmy-fastq/sample1*' pattern (using glob matching).
+python parseKronaGetReadsByTaxid.py --krona.html=sample1.krona.html \
+--dir.fastq=allmy-fastq/sample1*.fastq.gz --dir.output=filtered_Klebsiella_reads \
+--fetch.taxa="Klebsiella pneumoniae"
+
+# This one searches all reads that were assigned exactly to the taxon Klebsiella,
+# or to taxa which are part of it, for instance the species Klebsiella pneumoniae,
+python parseKronaGetReadsByTaxid.py --krona.html=sample1.krona.html \
+--dir.fastq=allmy-fastq/sample1*.fastq.gz --dir.output=filtered_Klebsiella_reads \
+--fetch.taxa="Klebsiella pneumoniae" --cumulative
 
 # same but excluding reads from Klebsiella pneumoniae subsp. pneumoniae (NCBI taxon ID: 72407)
 # and assuming that the allmy-fastq/ folder only contains FASTQ files, all of which will be searched.
-python parseKronaGetReadsByTaxid.py krona.html=sample1.krona.html --dir.krona.html.files=sample1.krona.html.files \
---dir.fastq=allmy-fastq/ --dir.output=filtered_Klebsiella_reads \
- --fetch.taxa="Klebsiella pneumoniae" --exclude.taxa=72407
+python parseKronaGetReadsByTaxid.py --krona.html=sample1.krona.html \
+--dir.fastq=allmy-fastq/sample1*.fastq.gz --dir.output=filtered_Klebsiella_reads \
+--fetch.taxa="Klebsiella pneumoniae" --cumulative --exclude.taxa=72407
 
+# now a taste of the options:
 # specifying that the FASTQ reads are in NCBI Sequence Read Archive (SRA) format
-# and enabling memory-intensive, read/write time-saving option (useful when the large majority of equence reads were classified as belonging to the targeted taxon)
-python parseKronaGetReadsByTaxid.py krona.html=sample1.krona.html --dir.krona.html.files=sample1.krona.html.files \
---dir.fastq=allmy-fastq/sample1* --dir.output=filtered_Klebsiella_reads \
- --fetch.taxa="Klebsiella pneumoniae" --sra --fastIO
+# and assuming that the allmy-fastq/ folder only contains FASTQ files, all of which will be searched.
+python parseKronaGetReadsByTaxid.py --krona.html=sample1.krona.html \
+--dir.fastq=allmy-fastq/ --dir.output=filtered_Klebsiella_reads \
+--fetch.taxa="Klebsiella pneumoniae" --sra
+
+# enabling memory-intensive, read/write time-saving option
+# (useful when the large majority of equence reads were classified as belonging to the targeted taxon)
+# and concatenating all the reads in a single ouput file
+# (by default the same file strucuture than input is kept, e.g. with separate files for paired-end reads).
+python parseKronaGetReadsByTaxid.py --krona.html=sample1.krona.html \
+--dir.fastq=allmy-fastq/sample1*.fastq.gz --dir.output=filtered_Klebsiella_reads \
+--fetch.taxa="Klebsiella pneumoniae" --fastIO --concatenate
 
 # indicating that input is in FASTA format (default is expecting FASTQ)
-python parseKronaGetReadsByTaxid.py krona.html=sample1.krona.html --dir.krona.html.files=sample1.krona.html.files \
+python parseKronaGetReadsByTaxid.py --krona.html=sample1.krona.html \
 --dir.fastq=allmy-fastq/sample1*.fasta --dir.output=filtered_Klebsiella_reads \
- --fetch.taxa="Klebsiella pneumoniae --input.fasta
+--fetch.taxa="Klebsiella pneumoniae" --input.fasta
 
 # to see all options:
 python parseKronaGetReadsByTaxid.py --help
