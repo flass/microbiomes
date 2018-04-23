@@ -2,6 +2,7 @@
 krakenres="$HOME/oral_metagenomes/STEP_03_Kraken_results/kraken_classification/vs_krakendb_30-09-17"
 repohome="$HOME/github_flass/microbiomes"
 lefseprog="$HOME/Python_lib/lefse"
+ldathresh=3
 
 cd $krakenres/
 for f in `ls ./*.summary.txt` ; do
@@ -41,8 +42,9 @@ for fil in filtered_020 unfiltered; do
     cat ${repohome}/data/lefse_metadata_header_${criterion} > ${fradc}.4lefse.tsv
     tail -n+3 ${frad}.4lefse-1.tsv >> ${fradc}.4lefse.tsv
     ${lefseprog}/format_input.py ${fradc}.4lefse.tsv ${fradc}.lefse -c 1 -s 2 -o 1000000
-    ${lefseprog}/run_lefse.py ${fradc}.lefse ${fradc}.lefse_res -o ${fradc}.lefse_out
+    ${lefseprog}/run_lefse.py ${fradc}.lefse ${fradc}.lefse_res -o ${fradc}.lefse_out -l ${ldathresh}
     ${lefseprog}/plot_res.py ${fradc}.lefse_res ${fradc}.lefse_lda.pdf --format pdf
+    ${lefseprog}/plot_res.py ${fradc}.lefse_res ${fradc}.lefse_lda.pdf --format svg
     ${lefseprog}/plot_cladogram.py ${fradc}.lefse_res ${fradc}.lefse_clado.pdf --format pdf
     ${lefseprog}/plot_features.py ${fradc}.lefse ${fradc}.lefse_res ${fradc}.lefse_feat.pdf --format pdf -f one --feature_name "Campylobacter consisus"
   done
