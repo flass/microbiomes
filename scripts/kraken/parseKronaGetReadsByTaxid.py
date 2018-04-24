@@ -299,7 +299,7 @@ def usage():
 	s += "\t-k --concatenate\n\t\twhether to pool reads extracted for all querry taxa\n"
 	s += "\t-a --append\n\t\twhether ouptut must be appended to existing files (defaults to False)\n"
 	s += "\t-f --fastIO\n\t\twether to use memory caching of read offsets (use more memory but might accelerate I/O operations on FASTQ files when a majority of reads are to be collected)\n"
-	s += "\t-p --pickled=file.path\n\t\twether to dump pickled the offsets of reads in FASTQ files for faster running next time or loading the data if they already exist\n"
+	s += "\t-p --pickled=file.path\n\t\twhether to dump (using pickle) the offsets of reads in FASTQ files for faster running next time, or to load the pickled data if they already exist\n"
 	s += "\t-s --sra\n\t\tconsider the input read to have the SRA (Sequence Read Archive) FASTQ header format like '@SRRACCESSION.READNUM PROPER:HEADER:TAG'\n"
 	s += "\t-v --verbose\n\t\tprint information on processing of reads and taxonomic data (defaults to False)\n"
 	s += "\t-h --help\n\t\tprint this help message and quit\n"

@@ -24,13 +24,12 @@ python parseKronaGetReadsByTaxid.py --krona.html=sample1.krona.html \
 --fetch.taxa="Klebsiella pneumoniae"
 
 # This one searches all reads that were assigned exactly to the taxon Klebsiella,
-# or to taxa which are part of it, for instance the species Klebsiella pneumoniae,
+# or to children taxa, for instance the species Klebsiella pneumoniae,
 python parseKronaGetReadsByTaxid.py --krona.html=sample1.krona.html \
 --dir.fastq=allmy-fastq/sample1*.fastq.gz --dir.output=filtered_Klebsiella_reads \
 --fetch.taxa="Klebsiella pneumoniae" --cumulative
 
-# same but excluding reads from Klebsiella pneumoniae subsp. pneumoniae (NCBI taxon ID: 72407)
-# and assuming that the allmy-fastq/ folder only contains FASTQ files, all of which will be searched.
+# same but excluding reads from Klebsiella pneumoniae subsp. pneumoniae (NCBI taxon ID: 72407).
 python parseKronaGetReadsByTaxid.py --krona.html=sample1.krona.html \
 --dir.fastq=allmy-fastq/sample1*.fastq.gz --dir.output=filtered_Klebsiella_reads \
 --fetch.taxa="Klebsiella pneumoniae" --cumulative --exclude.taxa=72407
